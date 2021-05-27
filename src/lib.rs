@@ -121,6 +121,9 @@ pub use webdriver::WebDriver;
 pub use webdrivercommands::WebDriverCommands;
 pub use webelement::WebElement;
 
+#[cfg(feature = "persist")]
+pub use webdriver::persist::PersistedSession;
+
 /// Allow importing the common async structs via `use thirtyfour::prelude::*`.
 pub mod prelude {
     pub use crate::alert::Alert;

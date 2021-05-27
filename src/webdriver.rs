@@ -207,3 +207,65 @@ where
         }
     }
 }
+
+#[cfg(feature = "persist")]
+pub mod persist {
+    use std::marker::PhantomData;
+
+    use serde::{Deserialize, Serialize};
+
+    use crate::{
+        common::types::SessionId,
+        error::WebDriverResult,
+        http::connection_async::WebDriverHttpClientAsync,
+        session::{spawn_session_task, WebDriverSession},
+        webdriver::{GenericWebDriver, WebDriver},
+    };
+
+    /// The persisted session that can be serialized and deserialized.
+    ///
+    /// # TODO
+    ///
+    ///  - What is `WebDriverConfig` used for? Do we need to persist it as well?
+    ///
+    #[derive(Clone, Debug, Serialize, Deserialize)]
+    pub struct PersistedSession {
+        session_id: SessionId,
+        capabilities: serde_json::Value,
+    }
+
+    impl PersistedSession {
+        pub async fn connect<T>(
+            self,
+            remote_server_addr: &str,
+        ) -> WebDriverResult<GenericWebDriver<T>>
+        where
+            T: WebDriverHttpClientAsync + 'static,
+        {
+            let conn = T::create(remote_server_addr)?;
+            // TODO: Check if session exists?
+            let tx = spawn_session_task(Box::new(conn));
+
+            let driver = GenericWebDriver {
+                session: WebDriverSession::new(self.session_id, tx),
+                capabilities: self.capabilities,
+                quit_on_drop: true,
+                phantom: PhantomData,
+            };
+
+            Ok(driver)
+        }
+    }
+
+    impl WebDriver {
+        pub fn persist(mut self) -> PersistedSession {
+            // Disable `quit_on_drop` so that the session is not closed when this `self` is dropped.
+            self.quit_on_drop = false;
+
+            PersistedSession {
+                session_id: self.session.session_id().clone(),
+                capabilities: self.capabilities.clone(),
+            }
+        }
+    }
+}

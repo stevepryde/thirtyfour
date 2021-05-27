@@ -30,6 +30,8 @@ reqwest-rustls-tls-webpki-roots = ["reqwest/rustls-tls-webpki-roots"]
 reqwest-rustls-tls-native-roots = ["reqwest/rustls-tls-native-roots"]
 reqwest-rustls-tls-manual-roots = ["reqwest/rustls-tls-manual-roots"]
 
+persist = []
+
 [dependencies]
 async-trait = "0.1"
 futures = "0.3"
