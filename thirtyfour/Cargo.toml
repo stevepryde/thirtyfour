@@ -73,7 +73,7 @@ reqwest = { version = "0.12", default-features = false, features = [
 assert_matches = "1.5"
 axum = "0.7"
 color-eyre = "0.6"
-rstest = "0.19"
+rstest = "0.21"
 tower-http = { version = "0.5", features = ["fs"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
