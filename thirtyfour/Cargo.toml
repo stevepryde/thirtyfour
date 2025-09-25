@@ -52,7 +52,7 @@ stringmatch = "0.4"
 thirtyfour-macros = { path = "../thirtyfour-macros", version = "0.2.0", optional = true }
 thiserror = "2.0.12"
 arc-swap = "1"
-tokio = { version = "1", features = [
+tokio = { version = "1.30", features = [
     "rt",
     "macros",
     "time",
