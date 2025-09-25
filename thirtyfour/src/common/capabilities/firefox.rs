@@ -1,4 +1,4 @@
-use paste::paste;
+use pastey::paste;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_value, json, to_value, Value};
 

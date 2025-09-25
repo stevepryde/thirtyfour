@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use base64::{prelude::BASE64_STANDARD, Engine};
-use paste::paste;
+use pastey::paste;
 use serde::Serialize;
 use serde_json::{json, to_value, Value};
 

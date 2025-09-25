@@ -58,7 +58,7 @@ pub fn start_server() -> Arc<JoinHandle<()>> {
                     let addr = SocketAddr::from(([127, 0, 0, 1], PORT));
                     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
                     let app = axum::Router::new()
-                        .nest_service("/", tower_http::services::ServeDir::new(ASSETS_DIR));
+                        .fallback_service(tower_http::services::ServeDir::new(ASSETS_DIR));
                     axum::serve(listener, app).await.unwrap();
                 });
             });

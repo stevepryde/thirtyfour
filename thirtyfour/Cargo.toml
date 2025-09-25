@@ -44,7 +44,7 @@ bytes = "1"
 futures-util = { version = "0.3.31", default-features = false, features = ["alloc"] }
 http = "1"
 indexmap = "2"
-paste = "1"
+pastey = "0.1"
 serde = { version = "1.0.210", features = ["derive", "rc"] }
 serde_json = { version = "1.0.132", features = ["preserve_order"] }
 serde_repr = "0.1.19"
@@ -71,9 +71,9 @@ reqwest = { version = "0.12.8", default-features = false, features = [
 
 [dev-dependencies]
 assert_matches = "1.5"
-axum = "0.7"
+axum = "0.8"
 color-eyre = "0.6"
-rstest = { version = "0.25.0", default-features = false }
+rstest = { version = "0.26", default-features = false }
 tower-http = { version = "0.6", features = ["fs"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tokio = { version = "1", features = ["rt-multi-thread"] }

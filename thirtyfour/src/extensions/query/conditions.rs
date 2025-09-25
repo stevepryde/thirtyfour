@@ -212,7 +212,7 @@ macro_rules! elem_matches {
         }
     };
     (many [$name: ident] $field: ident => $plural: ident) => {
-        paste::paste! {
+        pastey::paste! {
             #[doc = concat!("Predicate that returns true for elements that have all the ",stringify!($plural)," specified with the")]
             ///specified values. See the `Needle` documentation for more details on text matching rules.
             pub fn [<element_has_ $plural>]<N>(
@@ -245,7 +245,7 @@ macro_rules! elem_matches {
         }
     };
     (single [$name: ident] $field: ident => $single: ident) => {
-        paste::paste! {
+        pastey::paste! {
             #[doc = concat!("Predicate that returns true for elements that have the specified ",stringify!($plural)," with the specified")]
             ///value. See the `Needle` documentation for more details on text matching rules.
             pub fn [<element_has_ $single>]<N>(
