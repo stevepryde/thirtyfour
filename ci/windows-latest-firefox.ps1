@@ -1,5 +1,1 @@
 choco install firefox
-Invoke-WebRequest -Uri "https://github.com/mozilla/geckodriver/releases/download/v0.34.0/geckodriver-v0.34.0-win32.zip" -OutFile geckodriver.zip
-Expand-Archive -LiteralPath geckodriver.zip -DestinationPath .
-Start-Process -FilePath geckodriver --port=4444
-Start-Sleep -Seconds 1

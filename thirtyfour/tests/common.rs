@@ -1,13 +1,16 @@
 #![allow(dead_code)]
 
-use rstest::fixture;
 use std::{
     net::SocketAddr,
     sync::{Arc, OnceLock},
     thread::JoinHandle,
 };
-use thirtyfour::prelude::*;
-use thirtyfour::support::block_on;
+
+use rstest::fixture;
+use thirtyfour::{
+    prelude::*, start_webdriver_process_full, WebDriverProcessBrowser, WebDriverProcessPort,
+};
+use thirtyfour::{support::block_on, ChromeCapabilities};
 use tokio::sync::{Semaphore, SemaphorePermit};
 
 static SERVER: OnceLock<Arc<JoinHandle<()>>> = OnceLock::new();
@@ -39,9 +42,13 @@ pub fn make_capabilities(s: &str) -> Capabilities {
 
 /// Get the WebDriver URL for the specified browser.
 pub fn webdriver_url(s: &str) -> String {
+    format!("http://localhost:{}", webdriver_port(s))
+}
+
+fn webdriver_port(s: &str) -> u16 {
     match s {
-        "firefox" => "http://localhost:4444".to_string(),
-        "chrome" => "http://localhost:9515".to_string(),
+        "firefox" => 4444,
+        "chrome" => 9515,
         browser => unimplemented!("unsupported browser backend {}", browser),
     }
 }
@@ -114,7 +121,6 @@ pub struct TestHarness {
 impl TestHarness {
     /// Create a new TestHarness instance.
     pub async fn new(browser: &str) -> Self {
-        init_logging();
         let server = start_server();
         let guard = lock_firefox(browser).await;
         let driver = Some(launch_browser(browser).await);
@@ -149,6 +155,12 @@ impl TestHarness {
 #[fixture]
 pub fn test_harness() -> TestHarness {
     let browser = std::env::var("THIRTYFOUR_BROWSER").unwrap_or_else(|_| "chrome".to_string());
+    let port = webdriver_port(&browser);
+    init_logging();
+    start_webdriver_process_full(
+        WebDriverProcessPort::Port(port),
+        WebDriverProcessBrowser::<ChromeCapabilities>::Name(browser.clone()),
+    );
     block_on(TestHarness::new(&browser))
 }
 

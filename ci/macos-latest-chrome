@@ -1,4 +1,2 @@
 #!/bin/bash
 brew install --cask google-chrome
-brew install --cask chromedriver
-chromedriver --port=9515 &

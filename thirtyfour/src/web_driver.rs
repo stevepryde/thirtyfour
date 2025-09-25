@@ -21,12 +21,10 @@ use crate::Capabilities;
 ///
 /// # fn main() -> WebDriverResult<()> {
 /// #     block_on(async {
+/// let server_url = "http://localhost:4444";
 /// let caps = DesiredCapabilities::firefox();
-/// // NOTE: this assumes you have a WebDriver compatible server running
-/// //       at http://localhost:4444
-/// //       e.g. `geckodriver -p 4444`
-/// // NOTE: If using selenium 3.x, use "http://localhost:4444/wd/hub/session" for the url.
-/// let driver = WebDriver::new("http://localhost:4444", caps).await?;
+/// start_webdriver_process(server_url, &caps);
+/// let driver = WebDriver::new(server_url, caps).await?;
 /// driver.goto("https://www.rust-lang.org/").await?;
 /// // Always remember to close the session.
 /// driver.quit().await?;
@@ -55,10 +53,6 @@ impl WebDriver {
     /// # fn main() -> WebDriverResult<()> {
     /// #     block_on(async {
     /// let caps = DesiredCapabilities::firefox();
-    /// // NOTE: this assumes you have a WebDriver compatible server running
-    /// //       at http://localhost:4444
-    /// //       e.g. `geckodriver -p 4444`
-    /// // NOTE: If using selenium 3.x, use "http://localhost:4444/wd/hub/session" for the url.
     /// let driver = WebDriver::new("http://localhost:4444", caps).await?;
     /// #         driver.quit().await?;
     /// #         Ok(())
