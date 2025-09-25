@@ -53,21 +53,21 @@ pub(crate) use bail;
 ///
 /// Optional attributes available within `#[by(..)]` include:
 /// - `single`: (default, single element only) Return `NoSuchElement` if the number of elements
-///             found is != 1.
+///   found is != 1.
 /// - `first`: (single element only) Select the first element that matches the query.
-///            By default, a query will return `NoSuchElement` if multiple elements match.
-///            This default is designed to catch instances where a query is not specific enough.
+///   By default, a query will return `NoSuchElement` if multiple elements match.
+///   This default is designed to catch instances where a query is not specific enough.
 /// - `not_empty`: (default, multi elements only) Return `NoSuchElement` if no elements were found.
 /// - `allow_empty`: (multi elements only) Return an empty Vec if no elements were found.
-///                  By default a multi-element query will return `NoSuchElement` if no
-///                  elements were found.
+///   By default a multi-element query will return `NoSuchElement` if no
+///   elements were found.
 /// - `description = "..."`: Set the element description to be displayed in `NoSuchElement` errors.
 /// - `allow_errors`: Ignore errors such as stale elements while polling.
 /// - `wait(timeout_ms = 10000, interval_ms=500)`: Override the default polling options.
 /// - `nowait`: Turn off polling for this element query.
 /// - `custom = "my_resolve_fn"`: Use the specified function to resolve the element or component.
-///                      **NOTE**: The `custom` attribute cannot be specified with any other
-///                      attribute.
+///   **NOTE**: The `custom` attribute cannot be specified with any other
+///   attribute.
 ///
 /// See [`ElementQueryOptions`] for more details on how each option is used.
 ///

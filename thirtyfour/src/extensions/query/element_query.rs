@@ -31,7 +31,7 @@ fn get_selector_summary(selectors: &[ElementSelector]) -> String {
     format!("[{}]", Criteria(selectors))
 }
 
-fn get_elements_description(len: Option<usize>, description: &str) -> Cow<str> {
+fn get_elements_description(len: Option<usize>, description: &str) -> Cow<'_, str> {
     let suffix = match len {
         Some(1) => "element",
         Some(_) => "elements",
@@ -55,7 +55,7 @@ fn no_such_element(selectors: &[ElementSelector], description: &str) -> WebDrive
 }
 
 /// Filter the specified elements using the specified filters.
-pub async fn filter_elements<'a, I, P, Ref>(
+pub async fn filter_elements<I, P, Ref>(
     mut elements: Vec<WebElement>,
     filters: I,
 ) -> WebDriverResult<Vec<WebElement>>
@@ -364,8 +364,7 @@ impl ElementQuery {
     pub async fn first(&self) -> WebDriverResult<WebElement> {
         self.first_opt().await?.ok_or_else(|| {
             let desc: &str = self.options.description.as_deref().unwrap_or("");
-            let err = no_such_element(&self.selectors, desc);
-            err
+            no_such_element(&self.selectors, desc)
         })
     }
 

@@ -46,7 +46,7 @@ pub trait HttpClient: Send + Sync + 'static {
     /// or couldn't prove its availability
     /// this isn't a simple clone,
     /// this new client needs to be able to run in a new runtime even if the old runtime has been destroyed
-
+    //
     // needed for object safety
     #[allow(clippy::new_ret_no_self)]
     #[allow(clippy::wrong_self_convention)]

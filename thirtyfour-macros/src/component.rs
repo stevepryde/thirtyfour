@@ -757,6 +757,7 @@ fn is_multi_resolver(path: &syn::Path) -> bool {
 }
 
 /// All args for a single element resolver.
+#[allow(clippy::large_enum_variant)]
 enum SingleResolverOptions {
     CustomFn(Expr),
     Opts {
@@ -870,6 +871,7 @@ impl ToTokens for SingleResolverArgs {
 }
 
 /// All args for a multi-element resolver.
+#[allow(clippy::large_enum_variant)]
 enum MultiResolverOptions {
     CustomFn(Expr),
     Opts {
