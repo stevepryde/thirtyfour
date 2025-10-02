@@ -47,7 +47,7 @@ http = "1"
 indexmap = "2"
 libc = { version = "0.2", optional = true }
 pastey = "0.1"
-selenium-manager = { git = "https://github.com/SeleniumHQ/selenium.git", optional = true }
+selenium-manager = { path = "../selenium/rust", optional = true }
 serde = { version = "1.0.210", features = ["derive", "rc"] }
 serde_json = { version = "1.0.132", features = ["preserve_order"] }
 serde_repr = "0.1.19"
