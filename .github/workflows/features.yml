@@ -12,6 +12,8 @@ jobs:
           profile: minimal
           toolchain: stable
       - uses: actions/checkout@v2
+        with:
+          submodules: true
       - name: Install cargo-hack
         uses: actions-rs/install@v0.1
         with:

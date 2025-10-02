@@ -2,3 +2,6 @@
 resolver = "3"
 
 members = ["thirtyfour", "thirtyfour-macros"]
+# Exclude the `selenium-manager` subrepo from `default-members`, so that
+# `cargo check`, etc. don't include it.
+default-members = ["thirtyfour", "thirtyfour-macros"]

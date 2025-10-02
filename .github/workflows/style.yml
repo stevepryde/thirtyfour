@@ -18,11 +18,13 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
           components: rustfmt, clippy
       - uses: actions/checkout@v2
+        with:
+          submodules: true
       - name: cargo fmt --check
         uses: actions-rs/cargo@v1
         with:
           command: fmt
-          args: --check
+          args: --check --package thirtyfour thirtyfour-macros
       - name: cargo doc
         uses: actions-rs/cargo@v1
         if: always()
