@@ -100,7 +100,7 @@ impl WebDriverProcess {
         // Wait for it to start up; check for an early exit. Avoid using tokio,
         // since this is placed in a `OnceLock` that may be accessed after the
         // tokio loop shuts down (see `start_webdriver_process_full`).
-        sleep(Duration::from_millis(500));
+        sleep(Duration::from_millis(1000));
         if let Some(status) = webdriver_process.try_wait()? {
             return Err(WebDriverError::FatalError(format!(
                 "Webdriver process exited with status code: {status}"
