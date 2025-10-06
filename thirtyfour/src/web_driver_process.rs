@@ -125,33 +125,40 @@ impl WebDriverProcess {
 /// A single instance of the web driver process. TODO: add one per type of
 /// support driver (chrome, firefox, safari, etc.) so we could have all
 /// drivers running at the same time.
-static WEB_DRIVER_PROCESS: OnceLock<Mutex<WebDriverProcess>> = OnceLock::new();
+static WEB_DRIVER_PROCESS: OnceLock<WebDriverResult<Mutex<WebDriverProcess>>> = OnceLock::new();
 
 /// Start a web driver process by downloading the appropriate driver if necessary,
 /// then starting the process. When this application exits, automatically stop
 /// the web driver process. This only starts the process once, regardless of
 /// how often it is called.
-pub fn start_webdriver_process_full<C>(
+pub fn start_webdriver_process_full<'a, C>(
     web_driver_process_port: WebDriverProcessPort,
     web_driver_process_browser: WebDriverProcessBrowser<C>,
-) where
+) -> Result<(), &'a WebDriverError>
+where
     C: CapabilitiesHelper,
 {
-    WEB_DRIVER_PROCESS.get_or_init(|| {
-        unsafe {
-            if atexit(on_exit_handler) != 0 {
-                panic!("Unable to register atexit handler.");
-            }
+    match WEB_DRIVER_PROCESS.get_or_init(|| {
+        if unsafe { atexit(on_exit_handler) } != 0 {
+            return Err(WebDriverError::FatalError(
+                "Unable to register atexit handler.".to_string(),
+            ));
         }
         let webdriver_process =
-            WebDriverProcess::new(web_driver_process_port, web_driver_process_browser).unwrap();
-        Mutex::new(webdriver_process)
-    });
+            WebDriverProcess::new(web_driver_process_port, web_driver_process_browser)?;
+        Ok(Mutex::new(webdriver_process))
+    }) {
+        Err(e) => Err(e),
+        Ok(_) => Ok(()),
+    }
 }
 
 /// The most common case: call `start_webdriver_process_full` with the provided
 /// parameters.
-pub fn start_webdriver_process<C>(server_url: &str, capabilities: &C)
+pub fn start_webdriver_process<'a, C>(
+    server_url: &str,
+    capabilities: &C,
+) -> Result<(), &'a WebDriverError>
 where
     C: CapabilitiesHelper,
 {
@@ -167,8 +174,12 @@ extern "C" fn on_exit_handler() {
     // Per the C spec, this function must not call `quit()`. Therefore, avoid
     // using `unwrap()`, `expect()`, etc. Instead, report any errors to stderr
     // then exit without shutting down the web driver process.
-    let Some(web_driver_process_mutex) = WEB_DRIVER_PROCESS.get() else {
+    let Some(web_driver_process_result) = WEB_DRIVER_PROCESS.get() else {
         eprintln!("Web driver process not initialized.");
+        return;
+    };
+    // If there was an error running the process, then don't do any shutdown.
+    let Ok(web_driver_process_mutex) = web_driver_process_result else {
         return;
     };
     let mut web_driver_process = match web_driver_process_mutex.lock() {

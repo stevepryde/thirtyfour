@@ -160,7 +160,8 @@ pub fn test_harness() -> TestHarness {
     start_webdriver_process_full(
         WebDriverProcessPort::Port(port),
         WebDriverProcessBrowser::<ChromeCapabilities>::Name(browser.clone()),
-    );
+    )
+    .expect("Working startup.");
     block_on(TestHarness::new(&browser))
 }
 
