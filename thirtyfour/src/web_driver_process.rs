@@ -47,6 +47,7 @@ impl WebDriverProcess {
     pub fn new<C>(
         web_driver_process_port: WebDriverProcessPort<'_>,
         web_driver_process_browser: WebDriverProcessBrowser<'_, C>,
+        allow_offline: bool,
     ) -> WebDriverResult<Self>
     where
         C: CapabilitiesHelper,
@@ -80,8 +81,26 @@ impl WebDriverProcess {
         // The Selenium manager starts a Tokio runtime internally, which conflicts
         // with the Tokio runtime in this thread. So, run it in a separate thread.
         let driver_thread = thread::spawn(move || {
-            get_manager_by_browser(browser_name)
-                .map_or_else(Err, |mut selenium_manager| selenium_manager.setup())
+            let mut selenium_manager = match get_manager_by_browser(browser_name) {
+                Err(err) => return Err(err),
+                Ok(s) => s,
+            };
+            match selenium_manager.setup() {
+                Ok(p) => Ok(p),
+                Err(err) => {
+                    if selenium_manager.is_fallback_driver_from_cache() && allow_offline {
+                        if let Some(best_driver_from_cache) =
+                            selenium_manager.find_best_driver_from_cache().unwrap()
+                        {
+                            Ok(best_driver_from_cache)
+                        } else {
+                            Err(err)
+                        }
+                    } else {
+                        Err(err)
+                    }
+                }
+            }
         });
         let driver_path = driver_thread
             .join()
@@ -134,6 +153,7 @@ static WEB_DRIVER_PROCESS: OnceLock<WebDriverResult<Mutex<WebDriverProcess>>> = 
 pub fn start_webdriver_process_full<'a, C>(
     web_driver_process_port: WebDriverProcessPort,
     web_driver_process_browser: WebDriverProcessBrowser<C>,
+    allow_offline: bool,
 ) -> Result<(), &'a WebDriverError>
 where
     C: CapabilitiesHelper,
@@ -144,8 +164,11 @@ where
                 "Unable to register atexit handler.".to_string(),
             ));
         }
-        let webdriver_process =
-            WebDriverProcess::new(web_driver_process_port, web_driver_process_browser)?;
+        let webdriver_process = WebDriverProcess::new(
+            web_driver_process_port,
+            web_driver_process_browser,
+            allow_offline,
+        )?;
         Ok(Mutex::new(webdriver_process))
     }) {
         Err(e) => Err(e),
@@ -158,6 +181,7 @@ where
 pub fn start_webdriver_process<'a, C>(
     server_url: &str,
     capabilities: &C,
+    allow_offline: bool,
 ) -> Result<(), &'a WebDriverError>
 where
     C: CapabilitiesHelper,
@@ -165,6 +189,7 @@ where
     start_webdriver_process_full(
         WebDriverProcessPort::ServerUrl(server_url),
         WebDriverProcessBrowser::Caps(capabilities),
+        allow_offline,
     )
 }
 
