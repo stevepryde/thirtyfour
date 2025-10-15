@@ -31,18 +31,8 @@ Thirtyfour is a Selenium / WebDriver library for Rust, for automated website UI 
 - `rustls-tls`: (Default) Use rustls to provide TLS support (via reqwest).
 - `native-tls`: Use native TLS (via reqwest).
 - `component`: (Default) Enable the `Component` derive macro (via thirtyfour_macros).
-
-## Examples
-
-The examples assume you have `chromedriver` running on your system.
-
-You can use Selenium (see instructions below) or you can use chromedriver 
-directly by downloading the chromedriver that matches your Chrome version,
-from here: [https://chromedriver.chromium.org/downloads](https://chromedriver.chromium.org/downloads)
-
-Then run it like this:
-
-    chromedriver
+- `selenium-manager`: (Default) Enable the Selenium manager, which downloads then starts
+  the correct webdriver.
 
 ### Example (async):
 
@@ -56,7 +46,9 @@ use thirtyfour::prelude::*;
 #[tokio::main]
 async fn main() -> WebDriverResult<()> {
      let caps = DesiredCapabilities::chrome();
-     let driver = WebDriver::new("http://localhost:9515", caps).await?;
+     let server_url = "http://localhost:9515";
+     start_webdriver_process(server_url, &caps, true)?;
+     let driver = WebDriver::new(server_url, caps).await?;
 
      // Navigate to https://wikipedia.org.
      driver.goto("https://wikipedia.org").await?;
@@ -75,7 +67,7 @@ async fn main() -> WebDriverResult<()> {
      // Look for header to implicitly wait for the page to load.
      driver.find(By::ClassName("firstHeading")).await?;
      assert_eq!(driver.title().await?, "Selenium - Wikipedia");
-    
+
      // Always explicitly close the browser.
      driver.quit().await?;
 

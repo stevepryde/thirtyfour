@@ -44,10 +44,10 @@
 //! use thirtyfour::prelude::*;
 //!
 //! #[tokio::main]
-//! async fn main() -> WebDriverResult<()> {
+//! async fn main() -> color_eyre::Result<()> {
 //!     let server_url = "http://localhost:4444";
 //!     let caps = DesiredCapabilities::chrome();
-//!     start_webdriver_process(server_url, &caps);
+//!     start_webdriver_process(server_url, &caps, false)?;
 //!     let driver = WebDriver::new(server_url, caps).await?;
 //!
 //!     // Navigate to https://wikipedia.org.

@@ -1,7 +1,3 @@
-//! Requires chromedriver running on port 9515:
-//!
-//!     chromedriver --port=9515
-//!
 //! Run as follows:
 //!
 //!     cargo run --example tokio_async
@@ -15,7 +11,9 @@ async fn main() -> color_eyre::Result<()> {
     color_eyre::install()?;
 
     let caps = DesiredCapabilities::chrome();
-    let driver = WebDriver::new("http://localhost:9515", caps).await?;
+    let server_url = "http://localhost:9515";
+    start_webdriver_process(server_url, &caps, true)?;
+    let driver = WebDriver::new(server_url, caps).await?;
     // Navigate to https://wikipedia.org.
     driver.goto("https://wikipedia.org").await?;
     let elem_form = driver.find(By::Id("search-form")).await?;
