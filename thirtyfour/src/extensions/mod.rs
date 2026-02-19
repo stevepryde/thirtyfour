@@ -4,3 +4,5 @@ pub mod addons;
 pub mod cdp;
 // ElementQuery and ElementWaiter interfaces.
 pub mod query;
+/// WebDriver BiDi WebExtension API for managing browser extensions.
+pub mod webextension;
