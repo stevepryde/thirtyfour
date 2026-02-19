@@ -107,13 +107,15 @@ pub struct WebSocketResponse {
     pub error: Option<BidiError>,
 }
 
-/// BiDi error response.
+/// `BiDi` error response.
 #[derive(Debug, Clone, Deserialize)]
 pub struct BidiError {
-    /// Error code.
-    pub code: i64,
+    /// Error code (e.g., "invalid argument", "no such frame").
+    pub code: String,
     /// Error message.
     pub message: String,
+    /// Optional stack trace.
+    pub stacktrace: Option<String>,
 }
 
 /// WebSocket event received from `BiDi`.

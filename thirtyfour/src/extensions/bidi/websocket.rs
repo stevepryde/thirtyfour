@@ -187,12 +187,6 @@ impl BiDiConnection {
             msg = self.response_rx.recv() => msg,
         }
     }
-
-    /// Get a sender for external message injection.
-    pub fn event_channel(&self) -> mpsc::UnboundedSender<BiDiMessage> {
-        let (tx, _) = mpsc::unbounded_channel();
-        tx
-    }
 }
 
 /// Event listener wrapper for `BiDi` connections.

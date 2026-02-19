@@ -168,10 +168,11 @@ impl FormatRequestData for NetworkCommand {
                     params["method"] = json!(m);
                 }
                 if let Some(h) = headers {
-                    params["headers"] = serde_json::to_value(h).unwrap();
+                    params["headers"] =
+                        serde_json::to_value(h).expect("Header serialization failed");
                 }
                 if let Some(b) = body {
-                    params["body"] = serde_json::to_value(b).unwrap();
+                    params["body"] = serde_json::to_value(b).expect("Body serialization failed");
                 }
                 RequestData::new(
                     Method::POST,
@@ -194,10 +195,11 @@ impl FormatRequestData for NetworkCommand {
                     params["reasonPhrase"] = json!(r);
                 }
                 if let Some(h) = headers {
-                    params["headers"] = serde_json::to_value(h).unwrap();
+                    params["headers"] =
+                        serde_json::to_value(h).expect("Header serialization failed");
                 }
                 if let Some(b) = body {
-                    params["body"] = serde_json::to_value(b).unwrap();
+                    params["body"] = serde_json::to_value(b).expect("Body serialization failed");
                 }
                 RequestData::new(
                     Method::POST,
@@ -224,10 +226,11 @@ impl FormatRequestData for NetworkCommand {
                     params["reasonPhrase"] = json!(r);
                 }
                 if let Some(h) = headers {
-                    params["headers"] = serde_json::to_value(h).unwrap();
+                    params["headers"] =
+                        serde_json::to_value(h).expect("Header serialization failed");
                 }
                 if let Some(b) = body {
-                    params["body"] = serde_json::to_value(b).unwrap();
+                    params["body"] = serde_json::to_value(b).expect("Body serialization failed");
                 }
                 RequestData::new(
                     Method::POST,
