@@ -285,6 +285,8 @@ webdriver_err! {
         CommandSendError(String),
         #[error("Could not create session: {0}")]
         SessionCreateError(String),
+        #[error("WebSocket connection failed: {0}")]
+        ConnectionFailed(String),
     }
 }
 

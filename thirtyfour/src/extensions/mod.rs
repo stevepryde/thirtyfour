@@ -1,5 +1,8 @@
 /// Extensions for working with Firefox Addons.
 pub mod addons;
+/// WebDriver BiDi (Bidirectional Protocol) for real-time event handling.
+#[cfg(feature = "bidi")]
+pub mod bidi;
 /// Extensions for Chrome Devtools Protocol
 pub mod cdp;
 // ElementQuery and ElementWaiter interfaces.

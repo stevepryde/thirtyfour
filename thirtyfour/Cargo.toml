@@ -36,6 +36,7 @@ selenium-manager = ["dep:selenium-manager", "libc"]
 tokio-multi-threaded = ["tokio/rt-multi-thread"]
 component = ["thirtyfour-macros"]
 debug_sync_quit = []
+bidi = ["dep:tokio-tungstenite", "futures-util/sink"]
 
 
 [dependencies]
@@ -62,6 +63,7 @@ tokio = { version = "1.30", features = [
     "io-util",
     "sync",
 ] }
+tokio-tungstenite = { version = "0.26", features = ["rustls-tls-webpki-roots"], optional = true }
 cfg-if = "1.0.0"
 tracing = "0.1"
 url = "2.5.2"
