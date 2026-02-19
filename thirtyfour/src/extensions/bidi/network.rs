@@ -1,4 +1,4 @@
-//! Network interception commands for BiDi.
+//! Network interception commands for `BiDi`.
 
 use std::sync::Arc;
 
@@ -14,35 +14,56 @@ use serde_json::json;
 
 use crate::{common::command::FormatRequestData, RequestData};
 
-/// Network commands for BiDi.
+/// Network commands for `BiDi`.
 #[derive(Debug)]
-#[allow(missing_docs)]
 pub enum NetworkCommand {
+    /// Add a network intercept for specified phases.
     AddIntercept {
+        /// Phases at which to intercept requests.
         phases: Vec<InterceptPhase>,
     },
+    /// Continue a blocked request with optional modifications.
     ContinueRequest {
+        /// Request ID to continue.
         request: String,
+        /// Optional new URL for the request.
         url: Option<String>,
+        /// Optional new HTTP method.
         method: Option<String>,
+        /// Optional new headers.
         headers: Option<Vec<Header>>,
+        /// Optional new body.
         body: Option<Body>,
     },
+    /// Continue a blocked response with optional modifications.
     ContinueResponse {
+        /// Request ID to continue.
         request: String,
+        /// Optional new status code.
         status_code: Option<u16>,
+        /// Optional reason phrase.
         reason_phrase: Option<String>,
+        /// Optional new headers.
         headers: Option<Vec<Header>>,
+        /// Optional new body.
         body: Option<Body>,
     },
+    /// Fail a blocked request.
     FailRequest {
+        /// Request ID to fail.
         request: String,
     },
+    /// Provide a mock response for a blocked request.
     ProvideResponse {
+        /// Request ID to provide response for.
         request: String,
+        /// Response status code.
         status_code: u16,
+        /// Optional reason phrase.
         reason_phrase: Option<String>,
+        /// Optional response headers.
         headers: Option<Vec<Header>>,
+        /// Optional response body.
         body: Option<Body>,
     },
 }
@@ -59,7 +80,7 @@ pub enum InterceptPhase {
     AuthRequired,
 }
 
-/// HTTP header for BiDi requests.
+/// HTTP header for `BiDi` requests.
 #[derive(Debug, Clone, Serialize)]
 pub struct Header {
     /// Header name.
@@ -88,7 +109,7 @@ impl Header {
     }
 }
 
-/// Body content for BiDi requests/responses.
+/// Body content for `BiDi` requests/responses.
 #[derive(Debug, Clone, Serialize)]
 pub struct Body {
     /// Body type.

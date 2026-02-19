@@ -11,15 +11,19 @@ use crate::{common::command::FormatRequestData, error::WebDriverResult, RequestD
 pub enum BiDiCommand {
     /// Subscribe to events.
     Subscribe {
+        /// Events to subscribe to.
         events: Vec<String>,
     },
     /// Unsubscribe from events.
     Unsubscribe {
+        /// Events to unsubscribe from.
         events: Vec<String>,
     },
     /// Execute a BiDi command.
     ExecuteCommand {
+        /// Command method name.
         method: String,
+        /// Command parameters.
         params: serde_json::Value,
     },
 }
@@ -53,7 +57,7 @@ impl FormatRequestData for BiDiCommand {
     }
 }
 
-/// WebSocket command to send to BiDi.
+/// WebSocket command to send to `BiDi`.
 #[derive(Debug, Clone, Serialize)]
 pub struct WebSocketCommand {
     /// Command ID.
@@ -87,12 +91,12 @@ impl WebSocketCommand {
     /// Serialize the command to JSON.
     pub fn to_json(&self) -> WebDriverResult<String> {
         serde_json::to_string(self).map_err(|e| {
-            crate::error::WebDriverError::Json(format!("Failed to serialize command: {}", e))
+            crate::error::WebDriverError::Json(format!("Failed to serialize command: {e}"))
         })
     }
 }
 
-/// WebSocket response from BiDi.
+/// WebSocket response from `BiDi`.
 #[derive(Debug, Clone, Deserialize)]
 pub struct WebSocketResponse {
     /// Command ID that this response corresponds to.
@@ -112,7 +116,7 @@ pub struct BidiError {
     pub message: String,
 }
 
-/// WebSocket event received from BiDi.
+/// WebSocket event received from `BiDi`.
 #[derive(Debug, Clone, Deserialize)]
 pub struct WebSocketEvent {
     /// Event method name.
@@ -139,13 +143,12 @@ impl WebSocketEvent {
 
     /// Parse the event parameters as a specific type.
     pub fn params_as<T: DeserializeOwned>(&self) -> WebDriverResult<T> {
-        serde_json::from_value(self.params.clone()).map_err(|e| {
-            crate::error::WebDriverError::Json(format!("Failed to parse params: {}", e))
-        })
+        serde_json::from_value(self.params.clone())
+            .map_err(|e| crate::error::WebDriverError::Json(format!("Failed to parse params: {e}")))
     }
 }
 
-/// BiDi event types and parameter structures.
+/// `BiDi` event types and parameter structures.
 pub mod events {
     use serde::Deserialize;
 
@@ -366,7 +369,7 @@ pub mod events {
     pub const CONSOLE_ENTRY_ADDED: &str = "cdp.consoleEntryAdded";
 }
 
-/// BiDi domain helpers.
+/// `BiDi` domain helpers.
 pub mod domains {
     /// Network domain events.
     pub mod network {

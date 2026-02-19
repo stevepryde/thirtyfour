@@ -1,5 +1,6 @@
-//! WebSocket connection for BiDi real-time events.
+//! WebSocket connection for `BiDi` real-time events.
 
+use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
@@ -11,7 +12,7 @@ use url::Url;
 use super::commands::{WebSocketCommand, WebSocketEvent, WebSocketResponse};
 use crate::error::{WebDriverError, WebDriverResult};
 
-/// WebSocket connection factory for BiDi.
+/// WebSocket connection factory for `BiDi`.
 #[derive(Debug, Clone)]
 pub struct BiDiWebSocket {
     ws_url: Url,
@@ -22,21 +23,17 @@ impl BiDiWebSocket {
     /// Create a new WebSocket connection factory.
     pub fn new(ws_url: &str) -> WebDriverResult<Self> {
         let url = Url::parse(ws_url)
-            .map_err(|e| WebDriverError::ParseError(format!("Invalid WebSocket URL: {}", e)))?;
+            .map_err(|e| WebDriverError::ParseError(format!("Invalid WebSocket URL: {e}")))?;
         Ok(Self {
             ws_url: url,
             command_id: Arc::new(AtomicU64::new(1)),
         })
     }
 
-    fn next_command_id(&self) -> u64 {
-        self.command_id.fetch_add(1, Ordering::SeqCst)
-    }
-
     /// Connect to the WebSocket and return a connection handle.
     pub async fn connect(&self) -> WebDriverResult<BiDiConnection> {
         let (ws_stream, _) = connect_async(self.ws_url.as_str()).await.map_err(|e| {
-            WebDriverError::ConnectionFailed(format!("WebSocket connection failed: {}", e))
+            WebDriverError::ConnectionFailed(format!("WebSocket connection failed: {e}"))
         })?;
 
         let (write, read) = ws_stream.split();
@@ -85,13 +82,13 @@ impl BiDiWebSocket {
 /// A message received from the WebSocket.
 #[derive(Debug)]
 pub enum BiDiMessage {
-    /// An event from BiDi.
+    /// An event from `BiDi`.
     Event(WebSocketEvent),
     /// A response to a command.
     Response(WebSocketResponse),
 }
 
-/// Active WebSocket connection to BiDi.
+/// Active WebSocket connection to `BiDi`.
 pub struct BiDiConnection {
     write: Arc<
         tokio::sync::Mutex<
@@ -108,12 +105,20 @@ pub struct BiDiConnection {
     command_id: Arc<AtomicU64>,
 }
 
+impl fmt::Debug for BiDiConnection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BiDiConnection")
+            .field("command_id", &self.command_id)
+            .finish_non_exhaustive()
+    }
+}
+
 impl BiDiConnection {
     fn next_command_id(&self) -> u64 {
         self.command_id.fetch_add(1, Ordering::SeqCst)
     }
 
-    /// Send a command to BiDi.
+    /// Send a command to `BiDi`.
     pub async fn send_command(
         &self,
         method: impl Into<String>,
@@ -125,7 +130,7 @@ impl BiDiConnection {
 
         let mut writer = self.write.lock().await;
         writer.send(WsMessage::Text(json.into())).await.map_err(|e| {
-            WebDriverError::ConnectionFailed(format!("Failed to send command: {}", e))
+            WebDriverError::ConnectionFailed(format!("Failed to send command: {e}"))
         })?;
 
         Ok(id)
@@ -141,7 +146,7 @@ impl BiDiConnection {
         writer
             .send(WsMessage::Text(json.into()))
             .await
-            .map_err(|e| WebDriverError::ConnectionFailed(format!("Failed to subscribe: {}", e)))?;
+            .map_err(|e| WebDriverError::ConnectionFailed(format!("Failed to subscribe: {e}")))?;
 
         Ok(id)
     }
@@ -153,9 +158,10 @@ impl BiDiConnection {
         let json = command.to_json()?;
 
         let mut writer = self.write.lock().await;
-        writer.send(WsMessage::Text(json.into())).await.map_err(|e| {
-            WebDriverError::ConnectionFailed(format!("Failed to unsubscribe: {}", e))
-        })?;
+        writer
+            .send(WsMessage::Text(json.into()))
+            .await
+            .map_err(|e| WebDriverError::ConnectionFailed(format!("Failed to unsubscribe: {e}")))?;
 
         Ok(id)
     }
@@ -189,10 +195,11 @@ impl BiDiConnection {
     }
 }
 
-/// Event listener wrapper for BiDi connections.
+/// Event listener wrapper for `BiDi` connections.
 ///
 /// **Important:** The listener blocks while waiting for events.
 /// Run on a separate thread to avoid blocking your main application.
+#[derive(Debug)]
 pub struct BiDiEventListener {
     connection: BiDiConnection,
 }
@@ -215,7 +222,7 @@ impl BiDiEventListener {
         self.connection.unsubscribe(events).await
     }
 
-    /// Send a command to BiDi.
+    /// Send a command to `BiDi`.
     pub async fn send_command(
         &self,
         method: impl Into<String>,

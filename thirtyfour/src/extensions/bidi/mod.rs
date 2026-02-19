@@ -1,3 +1,5 @@
+#![allow(clippy::missing_errors_doc)]
+
 //! WebDriver BiDi (Bidirectional Protocol) support for real-time event handling.
 //!
 //! This module provides WebSocket-based communication with WebDriver for
