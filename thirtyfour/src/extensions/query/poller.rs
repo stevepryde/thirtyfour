@@ -21,7 +21,7 @@ pub trait IntoElementPoller: Debug {
     fn start(&self) -> AnyElementPoller;
 }
 
-/// Enum wrapper to enable static dispatch instead of dynamic Box<dyn>.
+/// Enum wrapper to enable static dispatch instead of dynamic `Box<dyn>`.
 #[derive(Debug, Clone)]
 pub enum AnyElementPoller {
     /// The with-timeout variant.
@@ -72,7 +72,7 @@ pub struct ElementPollerWithTimeout {
 
 impl ElementPollerWithTimeout {
     /// Create a new `ElementPollerWithTimeout`.
-    #[must_use] 
+    #[must_use]
     pub fn new(timeout: Duration, interval: Duration) -> Self {
         Self {
             timeout,

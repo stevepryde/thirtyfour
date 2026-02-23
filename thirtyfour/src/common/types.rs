@@ -159,14 +159,13 @@ impl ElementRef {
     /// The element id, as returned by the webdriver.
     #[must_use]
     pub fn id(&self) -> &str {
-        match self {
-            ElementRef::Element {
-                id,
-            } => id,
-            ElementRef::ShadowElement {
-                id,
-            } => id,
+        let (ElementRef::Element {
+            id,
         }
+        | ElementRef::ShadowElement {
+            id,
+        }) = self;
+        id
     }
 }
 
@@ -367,7 +366,7 @@ impl OptionRect {
     /// Create a new `OptionRect`.
     #[must_use]
     pub fn new() -> Self {
-        Default::default()
+        OptionRect::default()
     }
 
     /// Set the x coordinate of the top-left corner.

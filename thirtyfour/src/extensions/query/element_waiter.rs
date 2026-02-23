@@ -31,6 +31,7 @@ use stringmatch::Needle;
 /// # }
 /// ```
 #[derive(Debug)]
+#[must_use]
 pub struct ElementWaiter {
     element: WebElement,
     poller: AnyElementPoller,
@@ -42,7 +43,6 @@ impl ElementWaiter {
     /// Create a new `ElementWaiter`.
     ///
     /// See `Element::wait_until()` rather than creating this directly.
-    #[must_use] 
     pub fn new(element: WebElement, poller: AnyElementPoller) -> Self {
         Self {
             element,
@@ -54,13 +54,12 @@ impl ElementWaiter {
 
     /// Use the specified `ElementPoller` for this `ElementWaiter`.
     /// This will not affect the default `ElementPoller` used for other waits.
-    pub fn with_poller(mut self, poller: impl IntoElementPoller) -> Self {
+    pub fn with_poller(mut self, poller: &impl IntoElementPoller) -> Self {
         self.poller = poller.start();
         self
     }
 
     /// Provide a human-readable error message to be returned in the case of timeout.
-    #[must_use] 
     pub fn error(mut self, message: &str) -> Self {
         self.message = message.to_string();
         self
@@ -69,7 +68,6 @@ impl ElementWaiter {
     /// By default, a waiter will ignore any errors that occur while polling for the desired
     /// condition(s). However, this behaviour can be modified so that the waiter will return
     /// early if an error is returned from thirtyfour.
-    #[must_use] 
     pub fn ignore_errors(mut self, ignore: bool) -> Self {
         self.ignore_errors = ignore;
         self
@@ -78,9 +76,8 @@ impl ElementWaiter {
     /// Force this `ElementWaiter` to wait for the specified timeout, polling once
     /// after each interval. This will override the poller for this
     /// `ElementWaiter` only.
-    #[must_use] 
     pub fn wait(self, timeout: Duration, interval: Duration) -> Self {
-        self.with_poller(ElementPollerWithTimeout::new(timeout, interval))
+        self.with_poller(&ElementPollerWithTimeout::new(timeout, interval))
     }
 
     async fn run_poller<'a, F, I, P>(&self, conditions: F) -> WebDriverResult<bool>
@@ -114,6 +111,9 @@ impl ElementWaiter {
     }
 
     /// Wait for the specified condition to be true.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn condition(self, f: impl ElementPredicate) -> WebDriverResult<()> {
         if self.run_poller(|| [&f].into_iter()).await? {
             Ok(())
@@ -123,6 +123,9 @@ impl ElementWaiter {
     }
 
     /// Wait for the specified conditions to be true.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn conditions(
         self,
         conditions: Vec<Box<DynElementPredicate>>,
@@ -135,6 +138,9 @@ impl ElementWaiter {
     }
 
     /// Wait for the element to become stale.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn stale(self) -> WebDriverResult<()> {
         let ignore_errors = self.ignore_errors;
         self.condition(move |elem: WebElement| async move {
@@ -144,54 +150,81 @@ impl ElementWaiter {
     }
 
     /// Wait for the element to be displayed.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn displayed(self) -> WebDriverResult<()> {
         let ignore_errors = self.ignore_errors;
         self.condition(conditions::element_is_displayed(ignore_errors)).await
     }
 
     /// Wait for the element to not be displayed.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn not_displayed(self) -> WebDriverResult<()> {
         let ignore_errors = self.ignore_errors;
         self.condition(conditions::element_is_not_displayed(ignore_errors)).await
     }
 
     /// Wait for the element to be selected.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn selected(self) -> WebDriverResult<()> {
         let ignore_errors = self.ignore_errors;
         self.condition(conditions::element_is_selected(ignore_errors)).await
     }
 
     /// Wait for the element to not be selected.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn not_selected(self) -> WebDriverResult<()> {
         let ignore_errors = self.ignore_errors;
         self.condition(conditions::element_is_not_selected(ignore_errors)).await
     }
 
     /// Wait for the element to be enabled.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn enabled(self) -> WebDriverResult<()> {
         let ignore_errors = self.ignore_errors;
         self.condition(conditions::element_is_enabled(ignore_errors)).await
     }
 
     /// Wait for the element to not be enabled.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn not_enabled(self) -> WebDriverResult<()> {
         let ignore_errors = self.ignore_errors;
         self.condition(conditions::element_is_not_enabled(ignore_errors)).await
     }
 
     /// Wait for the element to be clickable.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn clickable(self) -> WebDriverResult<()> {
         let ignore_errors = self.ignore_errors;
         self.condition(conditions::element_is_clickable(ignore_errors)).await
     }
 
     /// Wait for the element to not be clickable.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn not_clickable(self) -> WebDriverResult<()> {
         let ignore_errors = self.ignore_errors;
         self.condition(conditions::element_is_not_clickable(ignore_errors)).await
     }
 
     /// Wait until the element has the specified class.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn has_class<N>(self, class_name: N) -> WebDriverResult<()>
     where
         N: Needle + Clone + Send + Sync + 'static,
@@ -201,6 +234,9 @@ impl ElementWaiter {
     }
 
     /// Wait until the element lacks the specified class.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn lacks_class<N>(self, class_name: N) -> WebDriverResult<()>
     where
         N: Needle + Clone + Send + Sync + 'static,
@@ -210,6 +246,9 @@ impl ElementWaiter {
     }
 
     /// Wait until the element has the specified text.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn has_text<N>(self, text: N) -> WebDriverResult<()>
     where
         N: Needle + Clone + Send + Sync + 'static,
@@ -219,6 +258,9 @@ impl ElementWaiter {
     }
 
     /// Wait until the element lacks the specified text.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn lacks_text<N>(self, text: N) -> WebDriverResult<()>
     where
         N: Needle + Clone + Send + Sync + 'static,
@@ -228,6 +270,9 @@ impl ElementWaiter {
     }
 
     /// Wait until the element has the specified value.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn has_value<N>(self, value: N) -> WebDriverResult<()>
     where
         N: Needle + Clone + Send + Sync + 'static,
@@ -237,6 +282,9 @@ impl ElementWaiter {
     }
 
     /// Wait until the element lacks the specified value.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn lacks_value<N>(self, value: N) -> WebDriverResult<()>
     where
         N: Needle + Clone + Send + Sync + 'static,
@@ -246,6 +294,9 @@ impl ElementWaiter {
     }
 
     /// Wait until the element has the specified attribute.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn has_attribute<S, N>(self, attribute_name: S, value: N) -> WebDriverResult<()>
     where
         S: IntoArcStr,
@@ -261,6 +312,9 @@ impl ElementWaiter {
     }
 
     /// Wait until the element lacks the specified attribute.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn lacks_attribute<S, N>(self, attribute_name: S, value: N) -> WebDriverResult<()>
     where
         S: IntoArcStr,
@@ -276,6 +330,9 @@ impl ElementWaiter {
     }
 
     /// Wait until the element has all the specified attributes.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn has_attributes<S, N>(
         self,
         desired_attributes: impl IntoIterator<Item = (S, N)>,
@@ -293,6 +350,9 @@ impl ElementWaiter {
     }
 
     /// Wait until the element lacks all the specified attributes.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn lacks_attributes<S, N>(
         self,
         desired_attributes: impl IntoIterator<Item = (S, N)>,
@@ -310,6 +370,9 @@ impl ElementWaiter {
     }
 
     /// Wait until the element has the specified property.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn has_property<S, N>(self, property_name: S, value: N) -> WebDriverResult<()>
     where
         S: IntoArcStr,
@@ -321,6 +384,9 @@ impl ElementWaiter {
     }
 
     /// Wait until the element lacks the specified property.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn lacks_property<S, N>(self, property_name: S, value: N) -> WebDriverResult<()>
     where
         S: IntoArcStr,
@@ -336,6 +402,9 @@ impl ElementWaiter {
     }
 
     /// Wait until the element has all the specified properties.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn has_properties<S, N>(
         self,
         desired_properties: impl IntoIterator<Item = (S, N)>,
@@ -351,6 +420,9 @@ impl ElementWaiter {
     }
 
     /// Wait until the element lacks all the specified properties.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn lacks_properties<S, N>(
         self,
         desired_properties: impl IntoIterator<Item = (S, N)>,
@@ -368,6 +440,9 @@ impl ElementWaiter {
     }
 
     /// Wait until the element has the specified CSS property.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn has_css_property<S, N>(self, css_property_name: S, value: N) -> WebDriverResult<()>
     where
         S: IntoArcStr,
@@ -383,6 +458,9 @@ impl ElementWaiter {
     }
 
     /// Wait until the element lacks the specified CSS property.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn lacks_css_property<S, N>(
         self,
         css_property_name: S,
@@ -402,6 +480,9 @@ impl ElementWaiter {
     }
 
     /// Wait until the element has all the specified CSS properties.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn has_css_properties<S, N>(
         self,
         desired_css_properties: impl IntoIterator<Item = (S, N)>,
@@ -419,6 +500,9 @@ impl ElementWaiter {
     }
 
     /// Wait until the element lacks all the specified CSS properties.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the condition times out.
     pub async fn lacks_css_properties<S, N>(
         self,
         desired_css_properties: impl IntoIterator<Item = (S, N)>,

@@ -161,12 +161,15 @@ pub async fn sleep(duration: Duration) {
 }
 
 /// Convenience wrapper for base64 encoding.
-#[must_use] 
+#[must_use]
 pub fn base64_encode(data: &[u8]) -> String {
     BASE64_STANDARD.encode(data)
 }
 
 /// Convenience wrapper for base64 decoding.
+///
+/// # Errors
+/// Returns an error if the input is not valid base64.
 pub fn base64_decode(data: &str) -> WebDriverResult<Vec<u8>> {
     let value = BASE64_STANDARD.decode(data)?;
     Ok(value)

@@ -13,8 +13,24 @@ use crate::{
     Capabilities, SessionId, TimeoutConfiguration,
 };
 
+#[derive(Debug, Deserialize)]
+struct ConnectionData {
+    #[serde(default, rename(deserialize = "sessionId"))]
+    session_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ConnectionResp {
+    #[serde(default, rename(deserialize = "sessionId"))]
+    session_id: String,
+    value: ConnectionData,
+}
+
 /// Start a new `WebDriver` session, returning the session id and the
 /// capabilities JSON that was received back from the server.
+///
+/// # Errors
+/// Returns an error if communication with the driver fails or if the session cannot be created.
 pub async fn start_session<C: HttpClient>(
     http_client: &C,
     server_url: &Url,
@@ -41,21 +57,6 @@ pub async fn start_session<C: HttpClient>(
             }
         }
     }?;
-
-    #[derive(Debug, Deserialize)]
-    struct ConnectionData {
-        #[serde(default, rename(deserialize = "sessionId"))]
-        session_id: String,
-        // #[serde(default)]
-        // capabilities: serde_json::Value,
-    }
-
-    #[derive(Debug, Deserialize)]
-    struct ConnectionResp {
-        #[serde(default, rename(deserialize = "sessionId"))]
-        session_id: String,
-        value: ConnectionData,
-    }
 
     let resp: ConnectionResp = serde_json::from_value(v.body)?;
     let data = resp.value;

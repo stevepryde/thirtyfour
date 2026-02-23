@@ -28,7 +28,6 @@ impl Default for WebDriverConfig {
 
 impl WebDriverConfig {
     /// Create new `WebDriverConfigBuilder`.
-    #[must_use]
     pub fn builder() -> WebDriverConfigBuilder {
         WebDriverConfigBuilder::new()
     }
@@ -65,6 +64,7 @@ impl WebDriverConfig {
 
 /// Builder for `WebDriverConfig`.
 #[derive(Debug)]
+#[must_use]
 pub struct WebDriverConfigBuilder {
     keep_alive: bool,
     poller: Option<AnyElementPoller>,
@@ -80,7 +80,6 @@ impl Default for WebDriverConfigBuilder {
 
 impl WebDriverConfigBuilder {
     /// Create a new `WebDriverConfigBuilder`.
-    #[must_use]
     pub fn new() -> Self {
         Self {
             keep_alive: true,

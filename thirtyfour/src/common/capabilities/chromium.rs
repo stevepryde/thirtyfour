@@ -12,12 +12,18 @@ macro_rules! chromium_arg_wrapper {
     ($($fname:ident => $opt:literal),*) => {
         paste! {
             $(
-                #[doc = concat!("Set the ", $opt, " option.")]
+                /// Set the specified Chromium option.
+                ///
+                /// # Errors
+                /// Returns an error if the arguments cannot be serialized or inserted.
                 fn [<set_ $fname>](&mut self) -> WebDriverResult<()> {
                     self.add_arg($opt)
                 }
 
-                #[doc = concat!("Unset the ", $opt, " option.")]
+                /// Unset the specified Chromium option.
+                ///
+                /// # Errors
+                /// Returns an error if the arguments cannot be serialized or removed.
                 fn [<unset_ $fname>](&mut self) -> WebDriverResult<()> {
                     self.remove_arg($opt)
                 }

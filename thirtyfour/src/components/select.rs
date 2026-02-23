@@ -245,7 +245,10 @@ impl SelectElement {
     /// Select all options for this select tag.
     ///
     /// # Errors
-    /// Returns an error if this is not a multi-select or if communication with the driver fails.
+    /// Returns an error if communication with the driver fails.
+    ///
+    /// # Panics
+    /// Panics if this is not a multi-select element.
     pub async fn select_all(&self) -> WebDriverResult<()> {
         assert!(self.multiple, "You may only select all options of a multi-select");
         self.set_selection_all(true).await
@@ -322,7 +325,10 @@ impl SelectElement {
     /// Deselect all options for this select tag.
     ///
     /// # Errors
-    /// Returns an error if this is not a multi-select or if communication with the driver fails.
+    /// Returns an error if communication with the driver fails.
+    ///
+    /// # Panics
+    /// Panics if this is not a multi-select element.
     pub async fn deselect_all(&self) -> WebDriverResult<()> {
         assert!(self.multiple, "You may only deselect all options of a multi-select");
         self.set_selection_all(false).await
@@ -331,7 +337,10 @@ impl SelectElement {
     /// Deselect options matching the specified value.
     ///
     /// # Errors
-    /// Returns an error if this is not a multi-select or if communication with the driver fails.
+    /// Returns an error if communication with the driver fails or no option matches the value.
+    ///
+    /// # Panics
+    /// Panics if this is not a multi-select element.
     pub async fn deselect_by_value(&self, value: &str) -> WebDriverResult<()> {
         assert!(self.multiple, "You may only deselect options of a multi-select");
         self.set_selection_by_value(value, false).await
@@ -341,7 +350,10 @@ impl SelectElement {
     /// the "index" attribute of an element and not merely by counting.
     ///
     /// # Errors
-    /// Returns an error if this is not a multi-select or if communication with the driver fails.
+    /// Returns an error if communication with the driver fails or no option matches the index.
+    ///
+    /// # Panics
+    /// Panics if this is not a multi-select element.
     pub async fn deselect_by_index(&self, index: u32) -> WebDriverResult<()> {
         assert!(self.multiple, "You may only deselect options of a multi-select");
         self.set_selection_by_index(index, false).await
@@ -355,7 +367,10 @@ impl SelectElement {
     /// See also `deselect_by_exact_text()` and `deselect_by_partial_text()`.
     ///
     /// # Errors
-    /// Returns an error if this is not a multi-select or if communication with the driver fails.
+    /// Returns an error if communication with the driver fails or no option matches the text.
+    ///
+    /// # Panics
+    /// Panics if this is not a multi-select element.
     pub async fn deselect_by_visible_text(&self, text: &str) -> WebDriverResult<()> {
         assert!(self.multiple, "You may only deselect options of a multi-select");
         self.set_selection_by_visible_text(text, false).await
@@ -380,7 +395,10 @@ impl SelectElement {
     /// Deselect all options with visible text exactly matching the specified text.
     ///
     /// # Errors
-    /// Returns an error if this is not a multi-select or if communication with the driver fails.
+    /// Returns an error if communication with the driver fails or no option matches the text.
+    ///
+    /// # Panics
+    /// Panics if this is not a multi-select element.
     pub async fn deselect_by_exact_text(&self, text: &str) -> WebDriverResult<()> {
         assert!(self.multiple, "You may only deselect options of a multi-select");
         self.set_selection_by_exact_text(text, false).await
@@ -389,7 +407,10 @@ impl SelectElement {
     /// Deselect all options with visible text partially matching the specified text.
     ///
     /// # Errors
-    /// Returns an error if this is not a multi-select or if communication with the driver fails.
+    /// Returns an error if communication with the driver fails or no option matches the text.
+    ///
+    /// # Panics
+    /// Panics if this is not a multi-select element.
     pub async fn deselect_by_partial_text(&self, text: &str) -> WebDriverResult<()> {
         assert!(self.multiple, "You may only deselect options of a multi-select");
         self.set_selection_by_partial_text(text, false).await

@@ -23,6 +23,7 @@ use std::time::Duration;
 /// driver.action_chain().drag_and_drop_element(elem_src, elem_target).perform().await?;
 /// ```
 #[derive(Debug)]
+#[must_use]
 pub struct ActionChain {
     handle: Arc<SessionHandle>,
     key_actions: ActionSource<KeyAction>,
@@ -136,7 +137,6 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
-    #[must_use]
     pub fn click(mut self) -> Self {
         self.pointer_actions.click();
         // Click = 2 actions (PointerDown + PointerUp).
@@ -166,7 +166,6 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
-    #[must_use]
     pub fn click_element(self, element: &WebElement) -> Self {
         self.move_to_element_center(element).click()
     }
@@ -195,7 +194,6 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
-    #[must_use]
     pub fn click_and_hold(mut self) -> Self {
         self.pointer_actions.click_and_hold();
         self.key_actions.pause();
@@ -227,7 +225,6 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
-    #[must_use]
     pub fn click_and_hold_element(self, element: &WebElement) -> Self {
         self.move_to_element_center(element).click_and_hold()
     }
@@ -253,7 +250,6 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
-    #[must_use]
     pub fn context_click(mut self) -> Self {
         self.pointer_actions.context_click();
         // Click = 2 actions (PointerDown + PointerUp).
@@ -283,7 +279,6 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
-    #[must_use]
     pub fn context_click_element(self, element: &WebElement) -> Self {
         self.move_to_element_center(element).context_click()
     }
@@ -309,7 +304,6 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
-    #[must_use]
     pub fn double_click(mut self) -> Self {
         self.pointer_actions.double_click();
         // Each click = 2 actions (PointerDown + PointerUp).
@@ -340,27 +334,23 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
-    #[must_use]
     pub fn double_click_element(self, element: &WebElement) -> Self {
         self.move_to_element_center(element).double_click()
     }
 
     /// Drag the mouse cursor from the center of the source element to the
     /// center of the target element.
-    #[must_use]
     pub fn drag_and_drop_element(self, source: &WebElement, target: &WebElement) -> Self {
         self.click_and_hold_element(source).release_on_element(target)
     }
 
     /// Drag the mouse cursor by the specified X and Y offsets.
-    #[must_use]
     pub fn drag_and_drop_by_offset(self, x_offset: i64, y_offset: i64) -> Self {
         self.click_and_hold().move_by_offset(x_offset, y_offset)
     }
 
     /// Drag the mouse cursor by the specified X and Y offsets, starting
     /// from the center of the specified element.
-    #[must_use]
     pub fn drag_and_drop_element_by_offset(
         self,
         element: &WebElement,
@@ -527,7 +517,6 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
-    #[must_use]
     pub fn move_to(mut self, x: i64, y: i64) -> Self {
         self.pointer_actions.move_to(x, y);
         self.key_actions.pause();
@@ -563,7 +552,6 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
-    #[must_use]
     pub fn move_by_offset(mut self, x_offset: i64, y_offset: i64) -> Self {
         self.pointer_actions.move_by(x_offset, y_offset);
         self.key_actions.pause();
@@ -594,7 +582,6 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
-    #[must_use]
     pub fn move_to_element_center(mut self, element: &WebElement) -> Self {
         self.pointer_actions.move_to_element_center(element.element_id.clone());
         self.key_actions.pause();
@@ -637,7 +624,6 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
-    #[must_use]
     pub fn move_to_element_with_offset(
         mut self,
         element: &WebElement,
@@ -672,7 +658,6 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
-    #[must_use]
     pub fn release(mut self) -> Self {
         self.pointer_actions.release();
         self.key_actions.pause();
@@ -702,7 +687,6 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
-    #[must_use]
     pub fn release_on_element(self, element: &WebElement) -> Self {
         self.move_to_element_center(element).release()
     }

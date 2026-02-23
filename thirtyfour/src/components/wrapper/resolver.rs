@@ -43,11 +43,10 @@ pub struct ElementResolver<T> {
 
 impl<T: Debug> Debug for ElementResolver<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let guard = self.element.load();
+        let _guard = self.element.load();
         f.debug_struct("ElementResolver")
             .field("base_element", &self.base_element)
-            .field("element", &guard.get())
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -69,6 +68,9 @@ impl<T: Clone + 'static> ElementResolver<T> {
     }
 
     /// Return the cached element(s) if any, otherwise run the query and return the result.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the element is not found.
     pub async fn resolve(&self) -> WebDriverResult<T> {
         self.element
             .load()
@@ -85,6 +87,9 @@ impl<T: Clone + 'static> ElementResolver<T> {
     }
 
     /// Run the query, ignoring any cached element(s).
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the element is not found.
     pub async fn resolve_force(&self) -> WebDriverResult<T>
     where
         T: Clone,
@@ -136,6 +141,9 @@ impl<T: sealed::Resolve> Resolve for T {}
 
 impl<T: Resolve + Clone + 'static> ElementResolver<T> {
     /// Validate that the cached component is present, and if so, return it.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the element is not found.
     pub async fn validate(&self) -> WebDriverResult<Option<T>> {
         match self.peek() {
             Some(component) => Ok(component.is_present().await?.then_some(component)),
@@ -147,6 +155,9 @@ impl<T: Resolve + Clone + 'static> ElementResolver<T> {
     ///
     /// If the component is already present, the cached component will be returned without
     /// performing an additional query.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the element is not found.
     pub async fn resolve_present(&self) -> WebDriverResult<T> {
         match self.validate().await? {
             Some(component) => Ok(component),
@@ -157,7 +168,7 @@ impl<T: Resolve + Clone + 'static> ElementResolver<T> {
 
 impl ElementResolver<WebElement> {
     /// Create a new element resolver that must return a single element.
-    #[must_use] 
+    #[must_use]
     pub fn new_single(base_element: WebElement, by: By) -> Self {
         let resolver = move |elem: WebElement| {
             let by = by.clone();
@@ -167,7 +178,7 @@ impl ElementResolver<WebElement> {
     }
 
     /// Create a new element resolver that must return a single element, with extra options.
-    #[must_use] 
+    #[must_use]
     pub fn new_single_opts(base_element: WebElement, by: By, options: ElementQueryOptions) -> Self {
         let resolver = move |elem: WebElement| {
             let by = by.clone();
@@ -178,7 +189,7 @@ impl ElementResolver<WebElement> {
     }
 
     /// Create a new element resolver that returns the first element.
-    #[must_use] 
+    #[must_use]
     pub fn new_first(base_element: WebElement, by: By) -> Self {
         let resolver = move |elem: WebElement| {
             let by = by.clone();
@@ -188,7 +199,7 @@ impl ElementResolver<WebElement> {
     }
 
     /// Create a new element resolver that returns the first element, with extra options.
-    #[must_use] 
+    #[must_use]
     pub fn new_first_opts(base_element: WebElement, by: By, options: ElementQueryOptions) -> Self {
         let resolver = move |elem: WebElement| {
             let by = by.clone();
@@ -203,7 +214,7 @@ impl ElementResolver<Vec<WebElement>> {
     /// Create a new element resolver that returns all elements, if any.
     ///
     /// If no elements were found, this will resolve to an empty Vec.
-    #[must_use] 
+    #[must_use]
     pub fn new_allow_empty(base_element: WebElement, by: By) -> Self {
         let resolver = move |elem: WebElement| {
             let by = by.clone();
@@ -213,7 +224,7 @@ impl ElementResolver<Vec<WebElement>> {
     }
 
     /// Create a new element resolver that returns all elements (if any), with extra options.
-    #[must_use] 
+    #[must_use]
     pub fn new_allow_empty_opts(
         base_element: WebElement,
         by: By,
@@ -231,7 +242,7 @@ impl ElementResolver<Vec<WebElement>> {
     ///
     /// If no elements were found, a `NoSuchElement` error will be returned by the resolver's
     /// `resolve()` method.
-    #[must_use] 
+    #[must_use]
     pub fn new_not_empty(base_element: WebElement, by: By) -> Self {
         let resolver = move |elem: WebElement| {
             let by = by.clone();
@@ -244,7 +255,7 @@ impl ElementResolver<Vec<WebElement>> {
     ///
     /// If no elements were found, a `NoSuchElement` error will be returned by the resolver's
     /// `resolve()` method.
-    #[must_use] 
+    #[must_use]
     pub fn new_not_empty_opts(
         base_element: WebElement,
         by: By,
@@ -261,7 +272,7 @@ impl ElementResolver<Vec<WebElement>> {
 
 impl<T: Component + Clone + 'static> ElementResolver<T> {
     /// Create a new element resolver that must return a single component.
-    #[must_use] 
+    #[must_use]
     pub fn new_single(base_element: WebElement, by: By) -> Self {
         let resolver = move |elem: WebElement| {
             let by = by.clone();
@@ -274,7 +285,7 @@ impl<T: Component + Clone + 'static> ElementResolver<T> {
     }
 
     /// Create a new element resolver that must return a single component, with extra options.
-    #[must_use] 
+    #[must_use]
     pub fn new_single_opts(base_element: WebElement, by: By, options: ElementQueryOptions) -> Self {
         let resolver = move |elem: WebElement| {
             let by = by.clone();
@@ -288,7 +299,7 @@ impl<T: Component + Clone + 'static> ElementResolver<T> {
     }
 
     /// Create a new element resolver that returns the first component.
-    #[must_use] 
+    #[must_use]
     pub fn new_first(base_element: WebElement, by: By) -> Self {
         let resolver = move |elem: WebElement| {
             let by = by.clone();
@@ -301,7 +312,7 @@ impl<T: Component + Clone + 'static> ElementResolver<T> {
     }
 
     /// Create a new element resolver that returns the first component, with extra options.
-    #[must_use] 
+    #[must_use]
     pub fn new_first_opts(base_element: WebElement, by: By, options: ElementQueryOptions) -> Self {
         let resolver = move |elem: WebElement| {
             let by = by.clone();
@@ -319,7 +330,7 @@ impl<T: Component + Clone + 'static> ElementResolver<Vec<T>> {
     /// Create a new element resolver that returns all components, if any.
     ///
     /// If no components were found, this will resolve to an empty Vec.
-    #[must_use] 
+    #[must_use]
     pub fn new_allow_empty(base_element: WebElement, by: By) -> Self {
         let resolver = move |elem: WebElement| {
             let by = by.clone();
@@ -332,7 +343,7 @@ impl<T: Component + Clone + 'static> ElementResolver<Vec<T>> {
     }
 
     /// Create a new element resolver that returns all components (if any), with extra options.
-    #[must_use] 
+    #[must_use]
     pub fn new_allow_empty_opts(
         base_element: WebElement,
         by: By,
@@ -353,7 +364,7 @@ impl<T: Component + Clone + 'static> ElementResolver<Vec<T>> {
     ///
     /// If no components were found, a `NoSuchElement` error will be returned by the resolver's
     /// `resolve()` method.
-    #[must_use] 
+    #[must_use]
     pub fn new_not_empty(base_element: WebElement, by: By) -> Self {
         let resolver = move |elem: WebElement| {
             let by = by.clone();
@@ -369,7 +380,7 @@ impl<T: Component + Clone + 'static> ElementResolver<Vec<T>> {
     ///
     /// If no components were found, a `NoSuchElement` error will be returned by the resolver's
     /// `resolve()` method.
-    #[must_use] 
+    #[must_use]
     pub fn new_not_empty_opts(
         base_element: WebElement,
         by: By,

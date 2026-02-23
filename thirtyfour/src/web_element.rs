@@ -64,7 +64,10 @@ pub struct WebElement {
 
 impl fmt::Debug for WebElement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("WebElement").field("element", &self.element_id).finish()
+        f.debug_struct("WebElement")
+            .field("element", &self.element_id)
+            .field("handle", &self.handle)
+            .finish()
     }
 }
 
@@ -102,6 +105,9 @@ impl WebElement {
     ///       `WebElement`, use [`ScriptRet::element`] instead.
     ///
     /// [`ScriptRet::element`]: crate::session::scriptret::ScriptRet::element
+    ///
+    /// # Errors
+    /// Returns an error if deserialization fails.
     pub fn from_json(value: Value, handle: Arc<SessionHandle>) -> WebDriverResult<Self> {
         let element_ref: ElementRef = serde_json::from_value(value)?;
         Ok(Self {
@@ -160,6 +166,9 @@ impl WebElement {
     }
 
     /// Alias for [`WebElement::rect()`].
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     #[deprecated(since = "0.32.0", note = "Use rect() instead")]
     pub async fn rectangle(&self) -> WebDriverResult<ElementRect> {
         self.rect().await
@@ -208,6 +217,9 @@ impl WebElement {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn class_name(&self) -> WebDriverResult<Option<String>> {
         self.attr("class").await
     }
@@ -230,6 +242,9 @@ impl WebElement {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn id(&self) -> WebDriverResult<Option<String>> {
         self.attr("id").await
     }
@@ -253,6 +268,9 @@ impl WebElement {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn text(&self) -> WebDriverResult<String> {
         self.handle.cmd(Command::GetElementText(self.element_id.clone())).await?.value()
     }
@@ -357,6 +375,9 @@ impl WebElement {
     }
 
     /// Get the specified property.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     #[deprecated(since = "0.30.0", note = "This method has been renamed to prop()")]
     pub async fn get_property(&self, name: impl IntoArcStr) -> WebDriverResult<Option<String>> {
         self.prop(name).await
@@ -395,6 +416,9 @@ impl WebElement {
     }
 
     /// Get the specified attribute.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     #[deprecated(since = "0.30.0", note = "This method has been renamed to attr()")]
     pub async fn get_attribute(&self, name: impl IntoArcStr) -> WebDriverResult<Option<String>> {
         self.attr(name).await
@@ -433,6 +457,9 @@ impl WebElement {
     }
 
     /// Get the specified CSS property.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     #[deprecated(since = "0.30.0", note = "This method has been renamed to css_value()")]
     pub async fn get_css_property(&self, name: impl IntoArcStr) -> WebDriverResult<String> {
         self.css_value(name).await
@@ -551,6 +578,9 @@ impl WebElement {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn is_present(&self) -> WebDriverResult<bool> {
         let present = match self.tag_name().await {
             Ok(..) => true,
@@ -583,15 +613,21 @@ impl WebElement {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or element is not found.
     pub async fn find(&self, by: By) -> WebDriverResult<WebElement> {
         let r = self
             .handle
             .cmd(Command::FindElementFromElement(self.element_id.clone(), by.into()))
             .await?;
-        r.element(self.handle.clone())
+        r.element(&self.handle)
     }
 
     /// Search for a child element of this `WebElement` using the specified selector.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or element is not found.
     #[deprecated(since = "0.30.0", note = "This method has been renamed to find()")]
     pub async fn find_element(&self, by: By) -> WebDriverResult<WebElement> {
         self.find(by).await
@@ -623,15 +659,21 @@ impl WebElement {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn find_all(&self, by: By) -> WebDriverResult<Vec<WebElement>> {
         let r = self
             .handle
             .cmd(Command::FindElementsFromElement(self.element_id.clone(), by.into()))
             .await?;
-        r.elements(self.handle.clone())
+        r.elements(&self.handle)
     }
 
     /// Search for all child elements of this `WebElement` that match the specified selector.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     #[deprecated(since = "0.30.0", note = "This method has been renamed to find_all()")]
     pub async fn find_elements(&self, by: By) -> WebDriverResult<Vec<WebElement>> {
         self.find_all(by).await
@@ -674,22 +716,34 @@ impl WebElement {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn send_keys(&self, key: impl Into<TypingData>) -> WebDriverResult<()> {
         self.handle.cmd(Command::ElementSendKeys(self.element_id.clone(), key.into())).await?;
         Ok(())
     }
 
     /// Take a screenshot of this `WebElement` and return it as PNG, base64 encoded.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn screenshot_as_png_base64(&self) -> WebDriverResult<String> {
         self.handle.cmd(Command::TakeElementScreenshot(self.element_id.clone())).await?.value()
     }
 
     /// Take a screenshot of this `WebElement` and return it as PNG bytes.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or encoding fails.
     pub async fn screenshot_as_png(&self) -> WebDriverResult<Vec<u8>> {
         base64_decode(&self.screenshot_as_png_base64().await?)
     }
 
     /// Take a screenshot of this `WebElement` and write it to the specified filename.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or writing the file fails.
     pub async fn screenshot(&self, path: &Path) -> WebDriverResult<()> {
         let png = self.screenshot_as_png().await?;
         support::write_file(path, png).await?;
@@ -714,6 +768,9 @@ impl WebElement {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn focus(&self) -> WebDriverResult<()> {
         self.handle.execute(r"arguments[0].focus();", vec![self.to_json()?]).await?;
         Ok(())
@@ -737,6 +794,9 @@ impl WebElement {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn scroll_into_view(&self) -> WebDriverResult<()> {
         self.handle
             .execute(
@@ -765,6 +825,9 @@ impl WebElement {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn inner_html(&self) -> WebDriverResult<String> {
         self.prop("innerHTML").await.map(Option::unwrap_or_default)
     }
@@ -787,6 +850,9 @@ impl WebElement {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn outer_html(&self) -> WebDriverResult<String> {
         self.prop("outerHTML").await.map(Option::unwrap_or_default)
     }
@@ -795,6 +861,9 @@ impl WebElement {
     ///
     /// Call this method on the element containing the `#shadowRoot` node.
     /// You can then use the returned `WebElement` to query elements within the shadowRoot node.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if no shadow root exists.
     pub async fn get_shadow_root(&self) -> WebDriverResult<WebElement> {
         let ret =
             self.handle.execute("return arguments[0].shadowRoot", vec![self.to_json()?]).await?;
@@ -822,6 +891,9 @@ impl WebElement {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn enter_frame(self) -> WebDriverResult<()> {
         self.handle.cmd(Command::SwitchToFrameElement(self.element_id.clone())).await?;
         Ok(())
@@ -846,6 +918,9 @@ impl WebElement {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn js_drag_to(&self, target: &Self) -> WebDriverResult<()> {
         self.handle
             .execute(SIMULATE_DRAG_AND_DROP, vec![self.to_json()?, target.to_json()?])
@@ -871,6 +946,9 @@ impl WebElement {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or element is not found.
     pub async fn parent(&self) -> WebDriverResult<Self> {
         self.find(By::XPath("./..")).await
     }

@@ -62,6 +62,9 @@ impl ChromeDevTools {
     }
 
     /// Launch the Chrome app with the specified id.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn launch_app(&self, app_id: &str) -> WebDriverResult<()> {
         self.handle.cmd(ChromeCommand::LaunchApp(app_id.to_string())).await?;
         Ok(())
@@ -95,6 +98,9 @@ impl ChromeDevTools {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn get_network_conditions(&self) -> WebDriverResult<NetworkConditions> {
         let v = self.handle.cmd(ChromeCommand::GetNetworkConditions).await?;
         v.value()
@@ -107,7 +113,7 @@ impl ChromeDevTools {
     /// # use thirtyfour::prelude::*;
     /// # use thirtyfour::support::block_on;
     /// use thirtyfour::extensions::cdp::{ChromeDevTools, NetworkConditions};
-    ///
+    /// #
     /// # fn main() -> WebDriverResult<()> {
     /// #     block_on(async {
     /// #         let caps = DesiredCapabilities::chrome();
@@ -133,6 +139,9 @@ impl ChromeDevTools {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn set_network_conditions(
         &self,
         conditions: &NetworkConditions,
@@ -169,6 +178,9 @@ impl ChromeDevTools {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if command execution fails.
     pub async fn execute_cdp(&self, cmd: &str) -> WebDriverResult<Value> {
         self.execute_cdp_with_params(cmd, json!({})).await
     }
@@ -196,6 +208,9 @@ impl ChromeDevTools {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn execute_cdp_with_params(
         &self,
         cmd: &str,
@@ -207,30 +222,45 @@ impl ChromeDevTools {
     }
 
     /// Get the list of sinks available for cast.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn get_sinks(&self) -> WebDriverResult<Value> {
         let v = self.handle.cmd(ChromeCommand::GetSinks).await?;
         v.value()
     }
 
     /// Get the issue message for any issue in a cast session.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn get_issue_message(&self) -> WebDriverResult<Value> {
         let v = self.handle.cmd(ChromeCommand::GetIssueMessage).await?;
         v.value()
     }
 
     /// Set the specified sink as the cast session receiver target.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn set_sink_to_use(&self, sink_name: &str) -> WebDriverResult<()> {
         self.handle.cmd(ChromeCommand::SetSinkToUse(sink_name.to_string())).await?;
         Ok(())
     }
 
     /// Start a tab mirroring session on the specified receiver target.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn start_tab_mirroring(&self, sink_name: &str) -> WebDriverResult<()> {
         self.handle.cmd(ChromeCommand::StartTabMirroring(sink_name.to_string())).await?;
         Ok(())
     }
 
     /// Stop the existing cast session on the specified receiver target.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn stop_casting(&self, sink_name: &str) -> WebDriverResult<()> {
         self.handle.cmd(ChromeCommand::StopCasting(sink_name.to_string())).await?;
         Ok(())

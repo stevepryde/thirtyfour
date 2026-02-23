@@ -39,7 +39,7 @@ pub struct WebDriverErrorValue {
 
 impl WebDriverErrorValue {
     /// Create a new `WebDriverErrorValue`.
-    #[must_use] 
+    #[must_use]
     pub fn new(message: String) -> Self {
         Self {
             message,
@@ -86,7 +86,7 @@ pub struct WebDriverErrorInfo {
 
 impl WebDriverErrorInfo {
     /// Create a new `WebDriverErrorInfo`.
-    #[must_use] 
+    #[must_use]
     pub fn new(message: String) -> Self {
         Self {
             status: 0,
@@ -100,10 +100,10 @@ impl Display for WebDriverErrorInfo {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut msg = String::new();
         if self.status != 0 {
-            msg.push_str(&format!("\nStatus: {}\n", self.status));
+            let _ = writeln!(msg, "\nStatus: {}", self.status);
         }
         if !self.error.is_empty() {
-            msg.push_str(&format!("State: {}\n", self.error));
+            let _ = writeln!(msg, "State: {}", self.error);
         }
         let additional_info =
             format!("Additional info:\n{}", indent_lines(&self.value.to_string(), 4),);
@@ -292,18 +292,14 @@ webdriver_err! {
 
 impl WebDriverError {
     /// Create a new `WebDriverError` by parsing the response from the `WebDriver` server.
-    #[must_use] 
+    #[must_use]
     pub fn parse(status: u16, body: String) -> Self {
-        let body_json = match serde_json::from_str(&body) {
-            Ok(x) => x,
-            Err(_) => {
-                return Self::from_inner(WebDriverErrorInner::UnknownResponse(status, body));
-            }
+        let Ok(body_json) = serde_json::from_str(&body) else {
+            return Self::from_inner(WebDriverErrorInner::UnknownResponse(status, body));
         };
 
-        let mut payload: WebDriverErrorInfo = match serde_json::from_value(body_json) {
-            Ok(x) => x,
-            Err(_) => return Self::from_inner(WebDriverErrorInner::UnknownResponse(status, body)),
+        let Ok(mut payload) = serde_json::from_value::<WebDriverErrorInfo>(body_json) else {
+            return Self::from_inner(WebDriverErrorInner::UnknownResponse(status, body));
         };
 
         payload.status = status;
@@ -347,19 +343,19 @@ impl WebDriverError {
     }
 
     /// gets a reference to the underlying enum representation of this error
-    #[must_use] 
+    #[must_use]
     pub fn as_inner(&self) -> &WebDriverErrorInner {
         self
     }
 
     /// converts the underlying representation to the main representation
-    #[must_use] 
+    #[must_use]
     pub fn from_inner(err: WebDriverErrorInner) -> Self {
         Self(Box::new(err))
     }
 
     /// converts this error to its underlying representation
-    #[must_use] 
+    #[must_use]
     pub fn into_inner(self) -> WebDriverErrorInner {
         *self.0
     }
@@ -392,7 +388,7 @@ impl DerefMut for WebDriverError {
 }
 
 /// Convenience function to construct a simulated `NoSuchElement` error.
-#[must_use] 
+#[must_use]
 pub fn no_such_element(message: String) -> WebDriverError {
     WebDriverError::from_inner(WebDriverErrorInner::NoSuchElement(WebDriverErrorInfo {
         status: 400,

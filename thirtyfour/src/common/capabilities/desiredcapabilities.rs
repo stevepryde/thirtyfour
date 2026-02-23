@@ -297,6 +297,9 @@ pub trait BrowserCapabilitiesHelper: CapabilitiesHelper {
     const KEY: &'static str;
 
     /// Add any Serialize-able object to the capabilities under the browser's custom key.
+    ///
+    /// # Errors
+    /// Returns an error if serialization fails or if the capability cannot be inserted.
     fn insert_browser_option(
         &mut self,
         key: impl Into<String>,
@@ -334,6 +337,9 @@ pub trait BrowserCapabilitiesHelper: CapabilitiesHelper {
     }
 
     /// Remove the specified command-line argument if it had been added previously.
+    ///
+    /// # Errors
+    /// Returns an error if serialization fails or if the capability cannot be updated.
     fn remove_arg(&mut self, arg: &str) -> WebDriverResult<()> {
         let mut args = self.args();
         if args.is_empty() {

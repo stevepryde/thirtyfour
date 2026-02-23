@@ -60,6 +60,9 @@ fn no_such_element(selectors: &[ElementSelector], description: &str) -> WebDrive
 }
 
 /// Filter the specified elements using the specified filters.
+///
+/// # Errors
+/// Returns an error if communication with the driver fails or a filter returns an error.
 pub async fn filter_elements<I, P, Ref>(
     mut elements: Vec<WebElement>,
     filters: I,
@@ -97,13 +100,13 @@ pub struct ElementSelector {
 
 impl Debug for ElementSelector {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ElementSelector").field("by", &self.by).finish()
+        f.debug_struct("ElementSelector").field("by", &self.by).finish_non_exhaustive()
     }
 }
 
 impl ElementSelector {
     /// Create a new `ElementSelector`.
-    #[must_use] 
+    #[must_use]
     pub fn new(by: By) -> Self {
         Self {
             by,
@@ -157,6 +160,7 @@ pub enum ElementQueryWaitOptions {
 /// separately and applied to an `ElementQuery` in bulk if required.
 #[derive(Debug, Default, Clone)]
 #[non_exhaustive]
+#[must_use]
 pub struct ElementQueryOptions {
     ignore_errors: Option<bool>,
     description: Option<Arc<str>>,
@@ -165,14 +169,12 @@ pub struct ElementQueryOptions {
 
 impl ElementQueryOptions {
     /// Set whether to ignore errors when querying elements.
-    #[must_use] 
     pub fn ignore_errors(mut self, ignore_errors: bool) -> Self {
         self.ignore_errors = Some(ignore_errors);
         self
     }
 
     /// Set whether to ignore errors when querying elements.
-    #[must_use] 
     pub fn set_ignore_errors(mut self, ignore_errors: Option<bool>) -> Self {
         self.ignore_errors = ignore_errors;
         self
@@ -191,14 +193,12 @@ impl ElementQueryOptions {
     }
 
     /// Set the wait options for this element query.
-    #[must_use] 
     pub fn wait(mut self, wait_option: ElementQueryWaitOptions) -> Self {
         self.wait = Some(wait_option);
         self
     }
 
     /// Set the wait options for this element query.
-    #[must_use] 
     pub fn set_wait(mut self, wait_option: Option<ElementQueryWaitOptions>) -> Self {
         self.wait = wait_option;
         self
@@ -229,6 +229,7 @@ impl ElementQueryOptions {
 /// # }
 /// ```
 #[derive(Debug)]
+#[must_use]
 pub struct ElementQuery {
     source: ElementQuerySource,
     poller: AnyElementPoller,
@@ -252,7 +253,6 @@ impl ElementQuery {
     ///
     /// See `WebDriver::query()` or `WebElement::query()` rather than instantiating
     /// this directly.
-    #[must_use] 
     pub fn new(source: ElementQuerySource, by: By, poller: AnyElementPoller) -> Self {
         let selector = ElementSelector::new(by);
         Self {
@@ -264,7 +264,6 @@ impl ElementQuery {
     }
 
     /// Provide the options to use with this query.
-    #[must_use] 
     pub fn options(mut self, options: ElementQueryOptions) -> Self {
         self.options = options;
 
@@ -281,7 +280,6 @@ impl ElementQuery {
 
     /// Provide a name that will be included in the error message if the query was not successful.
     /// This is useful for providing more context about this particular query.
-    #[must_use] 
     pub fn desc(mut self, description: &str) -> Self {
         self.options = self.options.description(description);
         self
@@ -291,7 +289,6 @@ impl ElementQuery {
     /// element(s).
     /// However, this behaviour can be modified so that the waiter will return
     /// early if an error is returned from thirtyfour.
-    #[must_use] 
     pub fn ignore_errors(mut self, ignore: bool) -> Self {
         self.options = self.options.ignore_errors(ignore);
         self
@@ -303,7 +300,7 @@ impl ElementQuery {
 
     /// Use the specified `ElementPoller` for this `ElementQuery`.
     /// This will not affect the default `ElementPoller` used for other queries.
-    pub fn with_poller(mut self, poller: impl IntoElementPoller) -> Self {
+    pub fn with_poller(mut self, poller: &impl IntoElementPoller) -> Self {
         self.poller = poller.start();
         self
     }
@@ -311,16 +308,15 @@ impl ElementQuery {
     /// Force this `ElementQuery` to wait for the specified timeout, polling once
     /// after each interval. This will override the poller for this
     /// `ElementQuery` only.
-    #[must_use] 
     pub fn wait(self, timeout: Duration, interval: Duration) -> Self {
-        self.with_poller(ElementPollerWithTimeout::new(timeout, interval))
+        self.with_poller(&ElementPollerWithTimeout::new(timeout, interval))
     }
 
     /// Force this `ElementQuery` to not wait for the specified condition(s).
-    /// This will override the poller for this `ElementQuery` only.
-    #[must_use] 
+    /// This will override the poller for this
+    /// `ElementQuery` only.
     pub fn nowait(self) -> Self {
-        self.with_poller(ElementPollerNoWait)
+        self.with_poller(&ElementPollerNoWait)
     }
 
     //
@@ -337,7 +333,6 @@ impl ElementQuery {
     /// Add a new selector to this `ElementQuery`. All conditions specified after
     /// this selector (up until the next `or()` method) will apply to this
     /// selector.
-    #[must_use] 
     pub fn or(self, by: By) -> Self {
         self.add_selector(ElementSelector::new(by))
     }
@@ -347,12 +342,18 @@ impl ElementQuery {
     //
 
     /// Return true if an element matches any selector (including filters), otherwise false.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn exists(&self) -> WebDriverResult<bool> {
         let elements = self.run_poller(true, false).await?;
         Ok(!elements.is_empty())
     }
 
     /// Return true if no element matches any selector (including filters), otherwise false.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn not_exists(&self) -> WebDriverResult<bool> {
         let elements = self.run_poller(false, true).await?;
         Ok(elements.is_empty())
@@ -361,6 +362,9 @@ impl ElementQuery {
     /// Return the first `WebElement` that matches any selector (including filters).
     ///
     /// Returns None if no elements match.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn first_opt(&self) -> WebDriverResult<Option<WebElement>> {
         let elements = self.run_poller(true, false).await?;
         Ok(elements.into_iter().next())
@@ -369,6 +373,9 @@ impl ElementQuery {
     /// Return only the first `WebElement` that matches any selector (including filters).
     ///
     /// Returns `Err(WebDriverError::NoSuchElement)` if no elements match.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if no element is found.
     pub async fn first(&self) -> WebDriverResult<WebElement> {
         self.first_opt().await?.ok_or_else(|| {
             let desc: &str = self.options.description.as_deref().unwrap_or("");
@@ -388,6 +395,9 @@ impl ElementQuery {
     ///
     /// By requiring that only one element is matched, you can be more sure that it is the
     /// one you intended.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if zero or multiple elements are found.
     pub async fn single(&self) -> WebDriverResult<WebElement> {
         let mut elements = self.run_poller(false, false).await?;
 
@@ -416,6 +426,9 @@ impl ElementQuery {
     /// This will return when at least one element is found, after processing all selectors.
     ///
     /// Returns an empty Vec if no elements match.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn any(&self) -> WebDriverResult<Vec<WebElement>> {
         self.run_poller(false, false).await
     }
@@ -425,28 +438,31 @@ impl ElementQuery {
     /// This will return when at least one element is found, after processing all selectors.
     ///
     /// Returns `Err(WebDriverError::NoSuchElement)` if no elements match.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if no elements are found.
     pub async fn any_required(&self) -> WebDriverResult<Vec<WebElement>> {
         let elements = self.run_poller(false, false).await?;
         disallow_empty!(elements, self)
     }
 
     /// Return all `WebElements` that match any single selector (including filters).
-    #[deprecated(since = "0.32.0", note = "use all_from_selector() instead")]
-    pub async fn all(&self) -> WebDriverResult<Vec<WebElement>> {
-        self.all_from_selector().await
-    }
-
-    /// Return all `WebElements` that match a single selector (including filters).
     ///
     /// This will return when at least one element is found from any selector, without
     /// processing other selectors afterwards.
     ///
     /// Returns an empty Vec if no elements match.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn all_from_selector(&self) -> WebDriverResult<Vec<WebElement>> {
         self.run_poller(true, false).await
     }
 
     /// Return all `WebElements` that match any single selector (including filters).
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if no elements are found.
     #[deprecated(since = "0.32.0", note = "use all_from_selector_required() instead")]
     pub async fn all_required(&self) -> WebDriverResult<Vec<WebElement>> {
         self.all_from_selector_required().await
@@ -458,6 +474,9 @@ impl ElementQuery {
     /// processing other selectors afterwards.
     ///
     /// Returns `Err(WebDriverError::NoSuchElement)` if no elements match.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if no elements are found.
     pub async fn all_from_selector_required(&self) -> WebDriverResult<Vec<WebElement>> {
         let elements = self.run_poller(true, false).await?;
         disallow_empty!(elements, self)
@@ -552,56 +571,48 @@ impl ElementQuery {
     //
 
     /// Only match elements that are enabled.
-    #[must_use] 
     pub fn and_enabled(self) -> Self {
         let ignore_errors = self.options.ignore_errors.unwrap_or_default();
         self.with_filter(conditions::element_is_enabled(ignore_errors))
     }
 
     /// Only match elements that are NOT enabled.
-    #[must_use] 
     pub fn and_not_enabled(self) -> Self {
         let ignore_errors = self.options.ignore_errors.unwrap_or_default();
         self.with_filter(conditions::element_is_not_enabled(ignore_errors))
     }
 
     /// Only match elements that are selected.
-    #[must_use] 
     pub fn and_selected(self) -> Self {
         let ignore_errors = self.options.ignore_errors.unwrap_or_default();
         self.with_filter(conditions::element_is_selected(ignore_errors))
     }
 
     /// Only match elements that are NOT selected.
-    #[must_use] 
     pub fn and_not_selected(self) -> Self {
         let ignore_errors = self.options.ignore_errors.unwrap_or_default();
         self.with_filter(conditions::element_is_not_selected(ignore_errors))
     }
 
     /// Only match elements that are displayed.
-    #[must_use] 
     pub fn and_displayed(self) -> Self {
         let ignore_errors = self.options.ignore_errors.unwrap_or_default();
         self.with_filter(conditions::element_is_displayed(ignore_errors))
     }
 
     /// Only match elements that are NOT displayed.
-    #[must_use] 
     pub fn and_not_displayed(self) -> Self {
         let ignore_errors = self.options.ignore_errors.unwrap_or_default();
         self.with_filter(conditions::element_is_not_displayed(ignore_errors))
     }
 
     /// Only match elements that are clickable.
-    #[must_use] 
     pub fn and_clickable(self) -> Self {
         let ignore_errors = self.options.ignore_errors.unwrap_or_default();
         self.with_filter(conditions::element_is_clickable(ignore_errors))
     }
 
     /// Only match elements that are NOT clickable.
-    #[must_use] 
     pub fn and_not_clickable(self) -> Self {
         let ignore_errors = self.options.ignore_errors.unwrap_or_default();
         self.with_filter(conditions::element_is_not_clickable(ignore_errors))

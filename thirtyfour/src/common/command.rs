@@ -171,6 +171,7 @@ impl From<BySelector> for Selector {
             BySelector::LinkText(x) => Selector::new("link text", x),
             BySelector::PartialLinkText(x) => Selector::new("partial link text", x),
             BySelector::Name(x) => Selector::new("css selector", format!("[name=\"{x}\"]")),
+            #[allow(clippy::match_same_arms)]
             BySelector::Tag(x) => Selector::new("css selector", x),
             BySelector::ClassName(x) => Selector::new("css selector", format!(".{x}")),
             BySelector::Css(x) => Selector::new("css selector", x),
@@ -274,6 +275,7 @@ pub trait FormatRequestData: Debug {
     fn format_request(&self, session_id: &SessionId) -> RequestData;
 }
 
+#[allow(clippy::too_many_lines)]
 impl FormatRequestData for Command {
     fn format_request(&self, session_id: &SessionId) -> RequestData {
         match self {

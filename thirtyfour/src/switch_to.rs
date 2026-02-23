@@ -28,6 +28,9 @@ impl SwitchTo {
         since = "0.30.0",
         note = "This method has been moved to WebDriver::active_element()"
     )]
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn active_element(self) -> WebDriverResult<WebElement> {
         self.handle.active_element().await
     }
@@ -43,6 +46,9 @@ impl SwitchTo {
     }
 
     /// Switch to the default frame.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     #[deprecated(
         since = "0.30.0",
         note = "This method has been moved to WebDriver::enter_default_frame()"
@@ -52,12 +58,18 @@ impl SwitchTo {
     }
 
     /// Switch to the frame specified at the index.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     #[deprecated(since = "0.30.0", note = "This method has been moved to WebDriver::enter_frame()")]
     pub async fn frame_number(self, frame_number: u16) -> WebDriverResult<()> {
         self.handle.enter_frame(frame_number).await
     }
 
     /// Switch to the frame contained within the element.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     #[deprecated(
         since = "0.30.0",
         note = "This method has been moved to WebElement::enter_frame()"
@@ -67,6 +79,9 @@ impl SwitchTo {
     }
 
     /// Switch to the parent of the frame the client is currently contained within.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     #[deprecated(
         since = "0.30.0",
         note = "This method has been moved to WebDriver::enter_parent_frame()"
@@ -77,18 +92,27 @@ impl SwitchTo {
     }
 
     /// Create a new window.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     #[deprecated(since = "0.30.0", note = "This method has been moved to WebDriver::new_window()")]
     pub async fn new_window(self) -> WebDriverResult<WindowHandle> {
         self.handle.new_window().await
     }
 
     /// Create a new tab.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     #[deprecated(since = "0.30.0", note = "This method has been moved to WebDriver::new_tab()")]
     pub async fn new_tab(self) -> WebDriverResult<WindowHandle> {
         self.handle.new_tab().await
     }
 
     /// Switch to the specified window.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     #[deprecated(
         since = "0.30.0",
         note = "This method has been moved to WebDriver::switch_to_window()"
@@ -98,6 +122,9 @@ impl SwitchTo {
     }
 
     /// Switch to the specified named window.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the window is not found.
     #[deprecated(
         since = "0.30.0",
         note = "This method has been moved to WebDriver::switch_to_named_window()"
@@ -154,7 +181,7 @@ impl SessionHandle {
     /// ```
     pub async fn active_element(self: &Arc<SessionHandle>) -> WebDriverResult<WebElement> {
         let r = self.cmd(Command::GetActiveElement).await?;
-        r.element(self.clone())
+        r.element(self)
     }
 
     /// Switch to the default frame.

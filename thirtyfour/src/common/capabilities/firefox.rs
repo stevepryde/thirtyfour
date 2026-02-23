@@ -25,11 +25,17 @@ macro_rules! firefox_arg_wrapper {
         paste! {
             $(
                 #[doc = concat!("Set the ", $opt, " option.")]
+                ///
+                /// # Errors
+                /// Returns an error if the value cannot be serialized or inserted.
                 pub fn [<set_ $fname>](&mut self) -> WebDriverResult<()> {
                     self.add_arg($opt)
                 }
 
                 #[doc = concat!("Unset the ", $opt, " option.")]
+                ///
+                /// # Errors
+                /// Returns an error if the value cannot be serialized or inserted.
                 pub fn [<unset_ $fname>](&mut self) -> WebDriverResult<()> {
                     self.remove_arg($opt)
                 }
@@ -165,7 +171,7 @@ impl BrowserCapabilitiesHelper for FirefoxCapabilities {
 }
 
 /// `LogLevel` used by `geckodriver`.
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum LogLevel {
     /// Trace log level.
@@ -188,7 +194,7 @@ pub enum LogLevel {
 }
 
 /// Log level for the webdriver server.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum LoggingPrefsLogLevel {
     /// Disable logging.
@@ -240,6 +246,9 @@ impl FirefoxPreferences {
 
     /// Unsets the specified firefox preference. This is a helper method for the various
     /// specific option methods.
+    ///
+    /// # Errors
+    /// Returns an error if the preferences cannot be serialized.
     pub fn unset(&mut self, key: &str) -> WebDriverResult<()> {
         self.preferences.remove(key);
         Ok(())
@@ -342,11 +351,17 @@ impl FirefoxPreferences {
     }
 
     /// Sets the user agent
+    ///
+    /// # Errors
+    /// Returns an error if the value cannot be serialized.
     pub fn set_user_agent(&mut self, value: String) -> WebDriverResult<()> {
         self.set("general.useragent.override", value)
     }
 
     /// Unsets the user agent
+    ///
+    /// # Errors
+    /// Returns an error if there is a serialization error.
     pub fn unset_user_agent(&mut self) -> WebDriverResult<()> {
         self.unset("general.useragent.override")
     }

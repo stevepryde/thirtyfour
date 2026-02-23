@@ -33,19 +33,22 @@ impl ScriptRet {
     }
 
     /// Get the raw JSON value.
-    #[must_use] 
+    #[must_use]
     pub fn json(&self) -> &Value {
         &self.value
     }
 
     /// Get the raw JSON value.
     #[deprecated(since = "0.30.0", note = "This method has been renamed to json()")]
-    #[must_use] 
+    #[must_use]
     pub fn value(&self) -> &Value {
         self.json()
     }
 
     /// Convert the JSON value into the a deserializeable type.
+    ///
+    /// # Errors
+    /// Returns an error if deserialization fails.
     pub fn convert<T>(&self) -> WebDriverResult<T>
     where
         T: DeserializeOwned,
@@ -57,11 +60,17 @@ impl ScriptRet {
     /// Get a single `WebElement` return value.
     ///
     /// Your script must return only a single element for this to work.
+    ///
+    /// # Errors
+    /// Returns an error if the value is not a valid `WebElement` or cannot be parsed.
     pub fn element(self) -> WebDriverResult<WebElement> {
         WebElement::from_json(self.value, self.handle)
     }
 
     /// Get a single `WebElement` return value.
+    ///
+    /// # Errors
+    /// Returns an error if the value is not a valid `WebElement` or cannot be parsed.
     #[deprecated(since = "0.30.0", note = "This method has been renamed to element()")]
     pub fn get_element(self) -> WebDriverResult<WebElement> {
         self.element()
@@ -70,6 +79,9 @@ impl ScriptRet {
     /// Get a vec of `WebElements` from the return value.
     ///
     /// Your script must return an array of elements for this to work.
+    ///
+    /// # Errors
+    /// Returns an error if the values are not valid `WebElements` or cannot be parsed.
     pub fn elements(self) -> WebDriverResult<Vec<WebElement>> {
         let values: Vec<Value> = serde_json::from_value(self.value)?;
         let handle = self.handle;
@@ -77,6 +89,9 @@ impl ScriptRet {
     }
 
     /// Get a vec of `WebElements` from the return value.
+    ///
+    /// # Errors
+    /// Returns an error if the values are not valid `WebElements` or cannot be parsed.
     #[deprecated(since = "0.30.0", note = "This method has been renamed to elements()")]
     pub fn get_elements(self) -> WebDriverResult<Vec<WebElement>> {
         self.elements()

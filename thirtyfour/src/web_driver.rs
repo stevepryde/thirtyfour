@@ -68,6 +68,9 @@ impl WebDriver {
     ///
     /// - If the webdriver appears to freeze or give no response, please check that the
     ///   capabilities' object is of the correct type for that webdriver.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if session creation fails.
     pub async fn new<S, C>(server_url: S, capabilities: C) -> WebDriverResult<Self>
     where
         S: Into<String>,
@@ -79,6 +82,9 @@ impl WebDriver {
     /// Create a new `WebDriver` with the specified `WebDriverConfig`.
     ///
     /// Use `WebDriverConfig::builder().build()` to construct the config.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if session creation fails.
     pub async fn new_with_config<S, C>(
         server_url: S,
         capabilities: C,
@@ -99,6 +105,9 @@ impl WebDriver {
     /// Create a new `WebDriver` with the specified `WebDriverConfig`.
     ///
     /// Use `WebDriverConfig::builder().build()` to construct the config.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if session creation fails.
     #[cfg(feature = "reqwest")]
     pub async fn new_with_config_and_client<S, C>(
         server_url: S,
@@ -163,6 +172,7 @@ impl WebDriver {
     ///
     /// This is useful in cases where you want to specify a custom poller configuration (or
     /// some other configuration option) for only one instance of `WebDriver`.
+    #[must_use]
     pub fn clone_with_config(&self, config: WebDriverConfig) -> Self {
         Self {
             handle: Arc::new(self.handle.clone_with_config(config)),

@@ -44,6 +44,9 @@ impl FirefoxTools {
     }
 
     /// Install the specified firefox add-on.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the addon cannot be installed.
     pub async fn install_addon(&self, path: &str, temporary: Option<bool>) -> WebDriverResult<()> {
         self.handle
             .cmd(FirefoxCommand::InstallAddon {
@@ -55,6 +58,9 @@ impl FirefoxTools {
     }
 
     /// Take a full-page screenshot of the current window and return it as PNG bytes.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or encoding fails.
     pub async fn full_screenshot_as_png(&self) -> WebDriverResult<Vec<u8>> {
         let r = self.handle.cmd(FirefoxCommand::FullScreenshot {}).await?;
         let encoded: String = r.value()?;
@@ -62,6 +68,9 @@ impl FirefoxTools {
     }
 
     /// Take a full-page screenshot of the current window and write it to the specified filename.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or writing the file fails.
     pub async fn full_screenshot(&self, path: &Path) -> WebDriverResult<()> {
         let png = self.full_screenshot_as_png().await?;
         support::write_file(path, png).await?;

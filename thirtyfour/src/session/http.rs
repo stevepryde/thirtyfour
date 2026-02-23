@@ -240,6 +240,9 @@ pub struct CmdResponse {
 
 impl CmdResponse {
     /// Get the `value` field of the response as a JSON value.
+    ///
+    /// # Errors
+    /// Returns an error if the response body is not in the expected format.
     pub fn value_json(self) -> WebDriverResult<Value> {
         match self.body {
             Value::Object(mut x) => x
@@ -250,19 +253,28 @@ impl CmdResponse {
     }
 
     /// Deserialize the value of the response.
+    ///
+    /// # Errors
+    /// Returns an error if deserialization fails or the response body is not in expected format.
     pub fn value<T: serde::de::DeserializeOwned>(self) -> WebDriverResult<T> {
         serde_json::from_value(self.value_json()?)
             .map_err(|e| WebDriverError::Json(format!("Failed to decode response body: {e:?}")))
     }
 
     /// Deserialize the element from the response.
-    pub fn element(self, handle: Arc<SessionHandle>) -> WebDriverResult<WebElement> {
+    ///
+    /// # Errors
+    /// Returns an error if deserialization fails or the response body is not in expected format.
+    pub fn element(self, handle: &Arc<SessionHandle>) -> WebDriverResult<WebElement> {
         let elem_id: ElementRef = serde_json::from_value(self.value_json()?)?;
-        Ok(WebElement::new(ElementId::from(elem_id.id()), handle))
+        Ok(WebElement::new(ElementId::from(elem_id.id()), handle.clone()))
     }
 
     /// Deserialize a list of elements from the response.
-    pub fn elements(self, handle: Arc<SessionHandle>) -> WebDriverResult<Vec<WebElement>> {
+    ///
+    /// # Errors
+    /// Returns an error if deserialization fails or the response body is not in expected format.
+    pub fn elements(self, handle: &Arc<SessionHandle>) -> WebDriverResult<Vec<WebElement>> {
         let values: Vec<ElementRef> = serde_json::from_value(self.value_json()?)?;
         Ok(values
             .into_iter()

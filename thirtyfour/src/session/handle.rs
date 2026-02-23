@@ -22,7 +22,34 @@ use crate::{support, By, OptionRect, Rect, SessionId, SwitchTo, WebDriverStatus,
 use crate::{IntoArcStr, IntoUrl};
 use crate::{TimeoutConfiguration, WindowHandle};
 
-use super::http::{run_webdriver_cmd, CmdResponse, HttpClient};
+use super::http::{run_webdriver_cmd, CmdResponse};
+
+struct SessionDropGuard(SessionHandle);
+
+impl Deref for SessionDropGuard {
+    type Target = SessionHandle;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for SessionDropGuard {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Drop for SessionDropGuard {
+    fn drop(&mut self) {
+        if !self.0.quit.initialized() {
+            static ALWAYS_INIT: LazyLock<Arc<OnceCell<()>>> =
+                LazyLock::new(|| Arc::new(OnceCell::new_with(Some(()))));
+            self.0.quit = Arc::clone(&ALWAYS_INIT);
+            debug_assert!(self.0.quit.initialized());
+        }
+    }
+}
 
 /// The `SessionHandle` contains a shared reference to the HTTP client
 /// to allow sending commands to the underlying `WebDriver`.
@@ -42,14 +69,20 @@ pub struct SessionHandle {
 impl Debug for SessionHandle {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SessionHandle")
+            .field("client", &self.client)
+            .field("server_url", &self.server_url)
             .field("session_id", &self.session_id)
             .field("config", &self.config)
+            .field("quit", &self.quit)
             .finish()
     }
 }
 
 impl SessionHandle {
     /// Create new `SessionHandle`.
+    ///
+    /// # Errors
+    /// Returns an error if the URL is invalid.
     pub fn new(
         client: Arc<reqwest::Client>,
         server_url: impl IntoUrl,
@@ -104,6 +137,9 @@ impl SessionHandle {
     }
 
     /// Send the specified command to the webdriver server.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn cmd(&self, command: impl FormatRequestData) -> WebDriverResult<CmdResponse> {
         let request_data = command.format_request(&self.session_id);
         run_webdriver_cmd(&*self.client, &request_data, &self.server_url, &self.config).await
@@ -126,6 +162,9 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn status(&self) -> WebDriverResult<WebDriverStatus> {
         self.cmd(Command::Status).await?.value()
     }
@@ -158,12 +197,18 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn close_window(&self) -> WebDriverResult<()> {
         self.cmd(Command::CloseWindow).await?;
         Ok(())
     }
 
     /// Close the current window or tab. This will close the session if no other windows exist.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     #[deprecated(since = "0.30.0", note = "This method has been renamed to close_window()")]
     pub async fn close(&self) -> WebDriverResult<()> {
         self.close_window().await
@@ -186,6 +231,9 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if the URL is invalid or communication with the driver fails.
     pub async fn goto(&self, url: impl IntoArcStr) -> WebDriverResult<()> {
         let url = url.into();
 
@@ -203,11 +251,17 @@ impl SessionHandle {
     }
 
     /// Navigate to the specified URL. Alias of `goto()`.
+    ///
+    /// # Errors
+    /// Returns an error if the URL is invalid or communication with the driver fails.
     pub async fn get(&self, url: impl IntoArcStr) -> WebDriverResult<()> {
         self.goto(url).await
     }
 
     /// Get the current URL.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the URL is invalid.
     pub async fn current_url(&self) -> WebDriverResult<Url> {
         let r = self.cmd(Command::GetCurrentUrl).await?;
         let s: String = r.value()?;
@@ -215,17 +269,26 @@ impl SessionHandle {
     }
 
     /// Get the page source as a String.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn source(&self) -> WebDriverResult<String> {
         self.cmd(Command::GetPageSource).await?.value()
     }
 
     /// Get the page source as a String.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     #[deprecated(since = "0.30.0", note = "This method has been renamed to source()")]
     pub async fn page_source(&self) -> WebDriverResult<String> {
         self.source().await
     }
 
     /// Get the page title as a String.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn title(&self) -> WebDriverResult<String> {
         self.cmd(Command::GetTitle).await?.value()
     }
@@ -253,12 +316,18 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the element is not found.
     pub async fn find(self: &Arc<Self>, by: By) -> WebDriverResult<WebElement> {
         let r = self.cmd(Command::FindElement(by.into())).await?;
-        r.element(self.clone())
+        r.element(self)
     }
 
     /// Search for an element on the current page using the specified selector.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the element is not found.
     #[deprecated(since = "0.30.0", note = "This method has been renamed to find()")]
     pub async fn find_element(self: &Arc<Self>, by: By) -> WebDriverResult<WebElement> {
         self.find(by).await
@@ -289,12 +358,18 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn find_all(self: &Arc<Self>, by: By) -> WebDriverResult<Vec<WebElement>> {
         let r = self.cmd(Command::FindElements(by.into())).await?;
-        r.elements(self.clone())
+        r.elements(self)
     }
 
     /// Search for all elements on the current page that match the specified selector.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     #[deprecated(since = "0.30.0", note = "This method has been renamed to find_all()")]
     pub async fn find_elements(self: &Arc<Self>, by: By) -> WebDriverResult<Vec<WebElement>> {
         self.find_all(by).await
@@ -348,6 +423,9 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if script execution fails.
     pub async fn execute(
         self: &Arc<Self>,
         script: impl IntoArcStr,
@@ -358,6 +436,9 @@ impl SessionHandle {
     }
 
     /// Execute the specified Javascript synchronously and return the result.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if script execution fails.
     #[deprecated(since = "0.30.0", note = "This method has been renamed to execute()")]
     pub async fn execute_script(
         self: &Arc<Self>,
@@ -426,6 +507,9 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if script execution fails.
     pub async fn execute_async(
         self: &Arc<Self>,
         script: impl IntoArcStr,
@@ -436,6 +520,9 @@ impl SessionHandle {
     }
 
     /// Execute the specified JavaScript asynchronously and return the result.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if script execution fails.
     #[deprecated(since = "0.30.0", note = "This method has been renamed to execute_async()")]
     pub async fn execute_script_async(
         self: &Arc<Self>,
@@ -478,12 +565,18 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn window(&self) -> WebDriverResult<WindowHandle> {
         let r = self.cmd(Command::GetWindowHandle).await?;
         Ok(WindowHandle::from(r.value::<String>()?))
     }
 
     /// Get the current window handle.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     #[deprecated(since = "0.30.0", note = "This method has been renamed to window()")]
     pub async fn current_window_handle(&self) -> WebDriverResult<WindowHandle> {
         self.window().await
@@ -513,6 +606,9 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn windows(&self) -> WebDriverResult<Vec<WindowHandle>> {
         let r = self.cmd(Command::GetWindowHandles).await?;
         let handles: Vec<String> = r.value()?;
@@ -520,6 +616,9 @@ impl SessionHandle {
     }
 
     /// Get all window handles for the current session.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     #[deprecated(since = "0.30.0", note = "This method has been renamed to windows()")]
     pub async fn window_handles(&self) -> WebDriverResult<Vec<WindowHandle>> {
         self.windows().await
@@ -542,6 +641,9 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn maximize_window(&self) -> WebDriverResult<()> {
         self.cmd(Command::MaximizeWindow).await?;
         Ok(())
@@ -566,6 +668,9 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn minimize_window(&self) -> WebDriverResult<()> {
         self.cmd(Command::MinimizeWindow).await?;
         Ok(())
@@ -588,6 +693,9 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn fullscreen_window(&self) -> WebDriverResult<()> {
         self.cmd(Command::FullscreenWindow).await?;
         Ok(())
@@ -616,6 +724,9 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn get_window_rect(&self) -> WebDriverResult<Rect> {
         self.cmd(Command::GetWindowRect).await?.value()
     }
@@ -636,6 +747,9 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn set_window_rect(
         &self,
         x: i64,
@@ -670,6 +784,9 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn back(&self) -> WebDriverResult<()> {
         self.cmd(Command::Back).await?;
         Ok(())
@@ -692,6 +809,9 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn forward(&self) -> WebDriverResult<()> {
         self.cmd(Command::Forward).await?;
         Ok(())
@@ -714,6 +834,9 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn refresh(&self) -> WebDriverResult<()> {
         self.cmd(Command::Refresh).await?;
         Ok(())
@@ -739,6 +862,9 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn get_timeouts(&self) -> WebDriverResult<TimeoutConfiguration> {
         self.cmd(Command::GetTimeouts).await?.value()
     }
@@ -772,12 +898,18 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn update_timeouts(&self, timeouts: TimeoutConfiguration) -> WebDriverResult<()> {
         self.cmd(Command::SetTimeouts(timeouts)).await?;
         Ok(())
     }
 
     /// Set all timeouts for the current session.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     #[deprecated(since = "0.30.0", note = "This method has been renamed to update_timeouts()")]
     pub async fn set_timeouts(&self, timeouts: TimeoutConfiguration) -> WebDriverResult<()> {
         self.update_timeouts(timeouts).await
@@ -814,6 +946,9 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn set_implicit_wait_timeout(&self, time_to_wait: Duration) -> WebDriverResult<()> {
         let timeouts = TimeoutConfiguration::new(None, None, Some(time_to_wait));
         self.update_timeouts(timeouts).await
@@ -842,6 +977,9 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn set_script_timeout(&self, time_to_wait: Duration) -> WebDriverResult<()> {
         let timeouts = TimeoutConfiguration::new(Some(time_to_wait), None, None);
         self.update_timeouts(timeouts).await
@@ -870,6 +1008,9 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn set_page_load_timeout(&self, time_to_wait: Duration) -> WebDriverResult<()> {
         let timeouts = TimeoutConfiguration::new(None, Some(time_to_wait), None);
         self.update_timeouts(timeouts).await
@@ -942,11 +1083,17 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn get_all_cookies(&self) -> WebDriverResult<Vec<Cookie>> {
         self.cmd(Command::GetAllCookies).await?.value()
     }
 
     /// Get all cookies.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     #[deprecated(since = "0.30.0", note = "This method has been renamed to get_all_cookies()")]
     pub async fn get_cookies(&self) -> WebDriverResult<Vec<Cookie>> {
         self.get_all_cookies().await
@@ -970,11 +1117,17 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the cookie is not found.
     pub async fn get_named_cookie(&self, name: impl IntoArcStr) -> WebDriverResult<Cookie> {
         self.cmd(Command::GetNamedCookie(name.into())).await?.value()
     }
 
     /// Get the specified cookie.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if the cookie is not found.
     #[deprecated(since = "0.30.0", note = "This method has been renamed to get_named_cookie()")]
     pub async fn get_cookie(&self, name: impl IntoArcStr) -> WebDriverResult<Cookie> {
         self.get_named_cookie(name).await
@@ -997,6 +1150,9 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn delete_cookie(&self, name: impl IntoArcStr) -> WebDriverResult<()> {
         self.cmd(Command::DeleteCookie(name.into())).await?;
         Ok(())
@@ -1019,6 +1175,9 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn delete_all_cookies(&self) -> WebDriverResult<()> {
         self.cmd(Command::DeleteAllCookies).await?;
         Ok(())
@@ -1046,32 +1205,50 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn add_cookie(&self, cookie: Cookie) -> WebDriverResult<()> {
         self.cmd(Command::AddCookie(cookie)).await?;
         Ok(())
     }
 
     /// Print the current window and return it as a PDF.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if encoding fails.
     pub async fn print_page(&self, parameters: PrintParameters) -> WebDriverResult<Vec<u8>> {
         base64_decode(&self.print_page_base64(parameters).await?)
     }
 
     /// Print the current window and return it as a PDF, base64 encoded.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn print_page_base64(&self, parameters: PrintParameters) -> WebDriverResult<String> {
         self.cmd(Command::PrintPage(parameters)).await?.value()
     }
 
     /// Take a screenshot of the current window and return it as PNG, base64 encoded.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn screenshot_as_png_base64(&self) -> WebDriverResult<String> {
         self.cmd(Command::TakeScreenshot).await?.value()
     }
 
     /// Take a screenshot of the current window and return it as PNG bytes.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if encoding fails.
     pub async fn screenshot_as_png(&self) -> WebDriverResult<Vec<u8>> {
         base64_decode(&self.screenshot_as_png_base64().await?)
     }
 
     /// Take a screenshot of the current window and write it to the specified filename.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or if writing the file fails.
     pub async fn screenshot(&self, path: &Path) -> WebDriverResult<()> {
         let png = self.screenshot_as_png().await?;
         support::write_file(path, png).await?;
@@ -1079,6 +1256,9 @@ impl SessionHandle {
     }
 
     /// Return a `SwitchTo` struct for switching to another window or frame.
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     #[deprecated(
         since = "0.30.0",
         note = "SwitchTo has been deprecated. Use WebDriver::switch_to_*() methods instead"
@@ -1124,6 +1304,9 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails.
     pub async fn set_window_name(
         self: &Arc<SessionHandle>,
         window_name: impl Display,
@@ -1156,6 +1339,9 @@ impl SessionHandle {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if communication with the driver fails or the closure returns an error.
     pub async fn in_new_tab<F, Fut, T>(&self, f: F) -> WebDriverResult<T>
     where
         F: FnOnce() -> Fut + Send,
@@ -1203,34 +1389,7 @@ impl Drop for SessionHandle {
             std::backtrace::Backtrace::capture()
         );
 
-        struct SessionDropGuard(SessionHandle);
-
-        impl Deref for SessionDropGuard {
-            type Target = SessionHandle;
-
-            fn deref(&self) -> &Self::Target {
-                &self.0
-            }
-        }
-
-        impl DerefMut for SessionDropGuard {
-            fn deref_mut(&mut self) -> &mut Self::Target {
-                &mut self.0
-            }
-        }
-
-        impl Drop for SessionDropGuard {
-            fn drop(&mut self) {
-                if !self.0.quit.initialized() {
-                    static ALWAYS_INIT: LazyLock<Arc<OnceCell<()>>> =
-                        LazyLock::new(|| Arc::new(OnceCell::new_with(Some(()))));
-                    self.0.quit = Arc::clone(&ALWAYS_INIT);
-                    debug_assert!(self.0.quit.initialized());
-                }
-            }
-        }
-
-        let mut this = SessionDropGuard(Self {
+        let this = SessionDropGuard(Self {
             client: Arc::clone(&self.client),
             server_url: Arc::clone(&self.server_url),
             quit: Arc::clone(&self.quit),
@@ -1238,13 +1397,6 @@ impl Drop for SessionHandle {
             config: self.config.clone(),
         });
 
-        support::spawn_blocked_future(|spawned| async move {
-            if spawned {
-                // Old I/O drivers may be destroyed at this point
-                let new_client = this.client.new().await;
-                this.client = Arc::new(new_client);
-            }
-            let _ = this.quit().await;
-        });
+        std::mem::drop(this);
     }
 }
