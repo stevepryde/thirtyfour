@@ -2,7 +2,7 @@
 name = "thirtyfour-macros"
 version = "0.2.0"
 authors = ["Steve Pryde <steve@stevepryde.com>", "Vrtgs"]
-edition = "2021"
+edition = "2024"
 license = "MIT OR Apache-2.0"
 description = """
 Thirtyfour is a Selenium / WebDriver library for Rust, for automated website UI testing.
