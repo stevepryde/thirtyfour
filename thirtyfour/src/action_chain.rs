@@ -98,7 +98,7 @@ impl ActionChain {
     /// ```
     ///
     /// # Errors
-    /// Returns an error if the WebDriver command fails.
+    /// Returns an error if the `WebDriver` command fails.
     pub async fn reset_actions(&self) -> WebDriverResult<()> {
         self.handle.cmd(Command::ReleaseActions).await?;
         Ok(())
@@ -108,7 +108,7 @@ impl ActionChain {
     /// this method is called.
     ///
     /// # Errors
-    /// Returns an error if the WebDriver command fails.
+    /// Returns an error if the `WebDriver` command fails.
     pub async fn perform(&self) -> WebDriverResult<()> {
         let actions = Actions::from(serde_json::json!([self.key_actions, self.pointer_actions]));
         self.handle.cmd(Command::PerformActions(actions)).await?;

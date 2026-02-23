@@ -29,6 +29,7 @@ categories = [
 
 [features]
 default = ["reqwest", "rustls-tls", "component"]
+selenium-manager = []
 reqwest = ["dep:reqwest"]
 rustls-tls = ["reqwest/rustls-tls"]
 native-tls = ["reqwest/native-tls"]

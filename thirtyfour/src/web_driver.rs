@@ -8,7 +8,6 @@ use crate::session::create::start_session;
 use crate::session::handle::SessionHandle;
 #[cfg(feature = "reqwest")]
 use crate::session::http::create_reqwest_client;
-use crate::session::http::HttpClient;
 use crate::Capabilities;
 
 /// The `WebDriver` struct encapsulates an async Selenium `WebDriver` browser
@@ -178,12 +177,18 @@ impl WebDriver {
     ///           call this method and await it to more or less "asynchronously drop" it
     ///           this also allows you to catch errors during quitting,
     ///           and possibly panic or report back to the user
+    ///
+    /// # Errors
+    /// Returns an error if the WebDriver returns an error during session termination.
     pub async fn quit(self) -> WebDriverResult<()> {
         self.handle.quit().await
     }
 
     /// Leak the webdriver session and prevent it from being closed,
     /// use this if you don't want your driver to automatically close
+    ///
+    /// # Errors
+    /// Returns an error if the session has already been quit.
     pub fn leak(self) -> Result<(), AlreadyQuit> {
         self.handle.leak()
     }

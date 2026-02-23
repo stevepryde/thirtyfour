@@ -37,7 +37,7 @@ impl SwitchTo {
         since = "0.30.0",
         note = "This method has been deprecated. See the `Alert` module for new method names"
     )]
-    #[must_use] 
+    #[must_use]
     pub fn alert(self) -> Alert {
         Alert::new(self.handle)
     }
@@ -124,6 +124,9 @@ impl SwitchTo {
 impl SessionHandle {
     /// Return the element with focus, or the `<body>` element if nothing has focus.
     ///
+    /// # Errors
+    /// Returns an error if there is no active element or if the WebDriver returns an error.
+    ///
     /// # Example:
     /// ```no_run
     /// # use thirtyfour::prelude::*;
@@ -156,6 +159,9 @@ impl SessionHandle {
 
     /// Switch to the default frame.
     ///
+    /// # Errors
+    /// Returns an error if the WebDriver returns an error.
+    ///
     /// # Example:
     /// ```no_run
     /// # use thirtyfour::prelude::*;
@@ -183,6 +189,9 @@ impl SessionHandle {
 
     /// Switch to an iframe by index. The first iframe on the page has index 0.
     ///
+    /// # Errors
+    /// Returns an error if the frame doesn't exist or if the WebDriver returns an error.
+    ///
     /// # Example:
     /// ```no_run
     /// # use thirtyfour::prelude::*;
@@ -208,6 +217,9 @@ impl SessionHandle {
     }
 
     /// Switch to the parent frame.
+    ///
+    /// # Errors
+    /// Returns an error if there is no parent frame or if the WebDriver returns an error.
     ///
     /// # Example:
     /// ```no_run
@@ -239,6 +251,9 @@ impl SessionHandle {
 
     /// Switch to the specified window.
     ///
+    /// # Errors
+    /// Returns an error if the window doesn't exist or if the WebDriver returns an error.
+    ///
     /// # Example:
     /// ```no_run
     /// # use thirtyfour::prelude::*;
@@ -269,6 +284,9 @@ impl SessionHandle {
 
     /// Switch to the window with the specified name. This uses the `window.name` property.
     /// You can set a window name via `WebDriver::set_window_name("someName").await?`.
+    ///
+    /// # Errors
+    /// Returns an error if no window with the given name exists or if the WebDriver returns an error.
     ///
     /// # Example:
     /// ```no_run
@@ -322,6 +340,9 @@ impl SessionHandle {
 
     /// Switch to a new window.
     ///
+    /// # Errors
+    /// Returns an error if the WebDriver returns an error.
+    ///
     /// # Example:
     /// ```no_run
     /// # use thirtyfour::prelude::*;
@@ -343,6 +364,9 @@ impl SessionHandle {
     }
 
     /// Switch to a new tab.
+    ///
+    /// # Errors
+    /// Returns an error if the WebDriver returns an error.
     ///
     /// # Example:
     /// ```no_run

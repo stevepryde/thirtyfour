@@ -7,6 +7,10 @@
 
 Thirtyfour is a Selenium / WebDriver library for Rust, for automated website UI testing.
 
+This version uses **Rust 2024 edition** and does not require the `async-trait` crate.
+Dynamic dispatch (`Box<dyn>`) has been replaced with concrete types and manual future boxing
+for maximum compatibility.
+
 
 ## Features
 

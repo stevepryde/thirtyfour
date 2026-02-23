@@ -34,7 +34,7 @@ const OSS_W3C_CONVERSION: &[(&str, &str)] = &[
 ];
 
 /// Convert the given `serde_json::Value` into a W3C-compatible Capabilities struct.
-#[must_use] 
+#[must_use]
 pub fn make_w3c_caps(caps: &Value) -> Value {
     let mut always_match = json!({});
 
@@ -72,43 +72,43 @@ pub struct DesiredCapabilities;
 
 impl DesiredCapabilities {
     /// Create a `ChromeCapabilities` struct.
-    #[must_use] 
+    #[must_use]
     pub fn chrome() -> ChromeCapabilities {
         ChromeCapabilities::new()
     }
 
     /// Create a `ChromiumCapabilities` struct.
-    #[must_use] 
+    #[must_use]
     pub fn chromium() -> ChromiumCapabilities {
         ChromiumCapabilities::new()
     }
 
     /// Create an `EdgeCapabilities` struct.
-    #[must_use] 
+    #[must_use]
     pub fn edge() -> EdgeCapabilities {
         EdgeCapabilities::new()
     }
 
     /// Create a `FirefoxCapabilities` struct.
-    #[must_use] 
+    #[must_use]
     pub fn firefox() -> FirefoxCapabilities {
         FirefoxCapabilities::new()
     }
 
     /// Create an `InternetExplorerCapabilities` struct.
-    #[must_use] 
+    #[must_use]
     pub fn internet_explorer() -> InternetExplorerCapabilities {
         InternetExplorerCapabilities::new()
     }
 
     /// Create an `OperaCapabilities` struct.
-    #[must_use] 
+    #[must_use]
     pub fn opera() -> OperaCapabilities {
         OperaCapabilities::new()
     }
 
     /// Create a `SafariCapabilities` struct.
-    #[must_use] 
+    #[must_use]
     pub fn safari() -> SafariCapabilities {
         SafariCapabilities::new()
     }
@@ -126,6 +126,9 @@ pub trait CapabilitiesHelper {
     fn insert_base_capability(&mut self, key: String, value: Value);
 
     /// Add any Serialize-able object to the capabilities under the specified key.
+    ///
+    /// # Errors
+    /// Returns an error if the value cannot be serialized.
     fn set_base_capability<T>(&mut self, key: &str, value: T) -> WebDriverResult<()>
     where
         T: Serialize,
@@ -135,79 +138,124 @@ pub trait CapabilitiesHelper {
     }
 
     /// Set the desired browser version.
+    ///
+    /// # Errors
+    /// Returns an error if the value cannot be serialized.
     fn set_version(&mut self, version: &str) -> WebDriverResult<()> {
         self.set_base_capability("version", version)
     }
 
     /// Set the desired browser platform.
+    ///
+    /// # Errors
+    /// Returns an error if the value cannot be serialized.
     fn set_platform(&mut self, platform: &str) -> WebDriverResult<()> {
         self.set_base_capability("platform", platform)
     }
 
     /// Set whether the session supports executing user-supplied Javascript.
+    ///
+    /// # Errors
+    /// Returns an error if the value cannot be serialized.
     fn set_javascript_enabled(&mut self, enabled: bool) -> WebDriverResult<()> {
         self.set_base_capability("javascriptEnabled", enabled)
     }
 
     /// Set whether the session can interact with database storage.
+    ///
+    /// # Errors
+    /// Returns an error if the value cannot be serialized.
     fn set_database_enabled(&mut self, enabled: bool) -> WebDriverResult<()> {
         self.set_base_capability("databaseEnabled", enabled)
     }
 
     /// Set whether the session can set and query the browser's location context.
+    ///
+    /// # Errors
+    /// Returns an error if the value cannot be serialized.
     fn set_location_context_enabled(&mut self, enabled: bool) -> WebDriverResult<()> {
         self.set_base_capability("locationContextEnabled", enabled)
     }
 
     /// Set whether the session can interact with the application cache.
+    ///
+    /// # Errors
+    /// Returns an error if the value cannot be serialized.
     fn set_application_cache_enabled(&mut self, enabled: bool) -> WebDriverResult<()> {
         self.set_base_capability("applicationCacheEnabled", enabled)
     }
 
     /// Set whether the session can query for the browser's connectivity and disable it if desired.
+    ///
+    /// # Errors
+    /// Returns an error if the value cannot be serialized.
     fn set_browser_connection_enabled(&mut self, enabled: bool) -> WebDriverResult<()> {
         self.set_base_capability("browserConnectionEnabled", enabled)
     }
 
     /// Set whether the session supports interactions with local storage.
+    ///
+    /// # Errors
+    /// Returns an error if the value cannot be serialized.
     fn set_web_storage_enabled(&mut self, enabled: bool) -> WebDriverResult<()> {
         self.set_base_capability("webStorageEnabled", enabled)
     }
 
     /// Set whether the session should accept all SSL certificates by default.
+    ///
+    /// # Errors
+    /// Returns an error if the value cannot be serialized.
     #[deprecated(since = "0.32.0-rc.5", note = "please use `accept_insecure_certs` instead")]
     fn accept_ssl_certs(&mut self, enabled: bool) -> WebDriverResult<()> {
         self.set_base_capability("acceptSslCerts", enabled)
     }
 
     /// Set whether the session should accept insecure SSL certificates by default.
+    ///
+    /// # Errors
+    /// Returns an error if the value cannot be serialized.
     fn accept_insecure_certs(&mut self, enabled: bool) -> WebDriverResult<()> {
         self.set_base_capability("acceptInsecureCerts", enabled)
     }
 
     /// Set whether the session can rotate the current page's layout between portrait and landscape
     /// orientations. Only applies to mobile platforms.
+    ///
+    /// # Errors
+    /// Returns an error if the value cannot be serialized.
     fn set_rotatable(&mut self, enabled: bool) -> WebDriverResult<()> {
         self.set_base_capability("rotatable", enabled)
     }
 
     /// Set whether the session is capable of generating native events when simulating user input.
+    ///
+    /// # Errors
+    /// Returns an error if the value cannot be serialized.
     fn set_native_events(&mut self, enabled: bool) -> WebDriverResult<()> {
         self.set_base_capability("nativeEvents", enabled)
     }
 
     /// Set the proxy to use.
+    ///
+    /// # Errors
+    /// Returns an error if the value cannot be serialized.
     fn set_proxy(&mut self, proxy: Proxy) -> WebDriverResult<()> {
         self.set_base_capability("proxy", proxy)
     }
 
     /// Set the behaviour to be followed when an unexpected alert is encountered.
+    ///
+    /// # Errors
+    /// Returns an error if the value cannot be serialized.
     fn set_unexpected_alert_behaviour(&mut self, behaviour: AlertBehaviour) -> WebDriverResult<()> {
         self.set_base_capability("unexpectedAlertBehaviour", behaviour)
     }
 
     /// Set whether elements are scrolled into the viewport for interation to align with the top
     /// or the bottom of the viewport. The default is to align with the top.
+    ///
+    /// # Errors
+    /// Returns an error if the value cannot be serialized.
     fn set_element_scroll_behaviour(&mut self, behaviour: ScrollBehaviour) -> WebDriverResult<()> {
         self.set_base_capability("elementScrollBehavior", behaviour)
     }
@@ -223,12 +271,18 @@ pub trait CapabilitiesHelper {
     }
 
     /// Get the current page load strategy.
+    ///
+    /// # Errors
+    /// Returns an error if the value cannot be deserialized.
     fn page_load_strategy(&self) -> WebDriverResult<PageLoadStrategy> {
         let strategy = self.get("pageLoadStrategy").map(|x| from_value(x.clone())).transpose()?;
         Ok(strategy.unwrap_or_default())
     }
 
     /// Set the page load strategy to use.
+    ///
+    /// # Errors
+    /// Returns an error if the value cannot be serialized.
     fn set_page_load_strategy(&mut self, strategy: PageLoadStrategy) -> WebDriverResult<()> {
         self.set_base_capability("pageLoadStrategy", strategy)
     }

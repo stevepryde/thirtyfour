@@ -20,6 +20,9 @@ impl Alert {
     }
 
     /// Get the text of the active alert if there is one.
+    ///
+    /// # Errors
+    /// Returns an error if there is no active alert or if the WebDriver returns an error.
     #[deprecated(
         since = "0.30.0",
         note = "This method has been moved to WebDriver::get_alert_text()"
@@ -29,6 +32,9 @@ impl Alert {
     }
 
     /// Dismiss the active alert if there is one.
+    ///
+    /// # Errors
+    /// Returns an error if there is no active alert or if the WebDriver returns an error.
     #[deprecated(
         since = "0.30.0",
         note = "This method has been moved to WebDriver::dismiss_alert()"
@@ -38,6 +44,9 @@ impl Alert {
     }
 
     /// Accept the active alert if there is one.
+    ///
+    /// # Errors
+    /// Returns an error if there is no active alert or if the WebDriver returns an error.
     #[deprecated(
         since = "0.30.0",
         note = "This method has been moved to WebDriver::accept_alert()"
@@ -47,6 +56,9 @@ impl Alert {
     }
 
     /// Send the specified text to the active alert if there is one.
+    ///
+    /// # Errors
+    /// Returns an error if there is no active alert or if the WebDriver returns an error.
     #[deprecated(
         since = "0.30.0",
         note = "This method has been moved to WebDriver::send_alert_text()"
@@ -58,6 +70,9 @@ impl Alert {
 
 impl SessionHandle {
     /// Get the active alert text.
+    ///
+    /// # Errors
+    /// Returns an error if there is no active alert or if the WebDriver returns an error.
     ///
     /// # Example:
     /// ```no_run
@@ -79,6 +94,9 @@ impl SessionHandle {
     }
 
     /// Dismiss the active alert.
+    ///
+    /// # Errors
+    /// Returns an error if there is no active alert or if the WebDriver returns an error.
     ///
     /// # Example:
     /// ```no_run
@@ -102,6 +120,9 @@ impl SessionHandle {
 
     /// Accept the active alert.
     ///
+    /// # Errors
+    /// Returns an error if there is no active alert or if the WebDriver returns an error.
+    ///
     /// # Example:
     /// ```no_run
     /// # use thirtyfour::prelude::*;
@@ -123,6 +144,9 @@ impl SessionHandle {
     }
 
     /// Send the specified keys to the active alert.
+    ///
+    /// # Errors
+    /// Returns an error if there is no active alert or if the WebDriver returns an error.
     ///
     /// # Example:
     /// You can specify anything that implements `Into<TypingData>`. This

@@ -28,7 +28,7 @@ impl Default for WebDriverConfig {
 
 impl WebDriverConfig {
     /// Create new `WebDriverConfigBuilder`.
-    #[must_use] 
+    #[must_use]
     pub fn builder() -> WebDriverConfigBuilder {
         WebDriverConfigBuilder::new()
     }
@@ -57,7 +57,7 @@ impl WebDriverConfig {
         since = "0.34.1",
         note = "This associated function is now a constant `WebDriverConfig::DEFAULT_USER_AGENT`"
     )]
-    #[must_use] 
+    #[must_use]
     pub fn default_user_agent() -> HeaderValue {
         Self::DEFAULT_USER_AGENT
     }
@@ -80,7 +80,7 @@ impl Default for WebDriverConfigBuilder {
 
 impl WebDriverConfigBuilder {
     /// Create a new `WebDriverConfigBuilder`.
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             keep_alive: true,
@@ -119,6 +119,9 @@ impl WebDriverConfigBuilder {
     }
 
     /// Build `WebDriverConfig` using builder options.
+    ///
+    /// # Errors
+    /// Returns an error if the user agent cannot be converted to a valid HeaderValue.
     pub fn build(self) -> WebDriverResult<WebDriverConfig> {
         Ok(WebDriverConfig {
             keep_alive: self.keep_alive,

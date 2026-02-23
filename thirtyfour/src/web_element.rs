@@ -114,6 +114,9 @@ impl WebElement {
     ///
     /// This is useful for supplying an element as an argument to a script.
     ///
+    /// # Errors
+    /// Returns an error if serialization fails.
+    ///
     /// See the documentation for [`SessionHandle::execute`] for more details.
     pub fn to_json(&self) -> WebDriverResult<Value> {
         Ok(serde_json::to_value(ElementRef::Element {
@@ -125,12 +128,15 @@ impl WebElement {
     ///
     /// NOTE: If you want the `id` property of an element,
     ///       use [`WebElement::id`] instead.
-    #[must_use] 
+    #[must_use]
     pub fn element_id(&self) -> ElementId {
         self.element_id.clone()
     }
 
     /// Get the bounding rectangle for this `WebElement`.
+    ///
+    /// # Errors
+    /// Returns an error if the element is stale or if the WebDriver returns an error.
     ///
     /// # Example:
     /// ```no_run
@@ -160,6 +166,9 @@ impl WebElement {
     }
 
     /// Get the tag name for this `WebElement`.
+    ///
+    /// # Errors
+    /// Returns an error if the element is stale or if the WebDriver returns an error.
     ///
     /// # Example:
     /// ```no_run
@@ -249,11 +258,17 @@ impl WebElement {
     }
 
     /// Convenience method for getting the (optional) value property of this element.
+    ///
+    /// # Errors
+    /// Returns an error if the element is stale or if the WebDriver returns an error.
     pub async fn value(&self) -> WebDriverResult<Option<String>> {
         self.prop("value").await
     }
 
     /// Click the `WebElement`.
+    ///
+    /// # Errors
+    /// Returns an error if the element is not clickable, is stale, or if the WebDriver returns an error.
     ///
     /// # Example:
     /// ```no_run
@@ -278,6 +293,9 @@ impl WebElement {
 
     /// Clear the `WebElement` contents.
     ///
+    /// # Errors
+    /// Returns an error if the element is not editable, is stale, or if the WebDriver returns an error.
+    ///
     /// # Example:
     /// ```no_run
     /// # use thirtyfour::prelude::*;
@@ -300,6 +318,9 @@ impl WebElement {
     }
 
     /// Get the specified property.
+    ///
+    /// # Errors
+    /// Returns an error if the element is stale or if the WebDriver returns an error.
     ///
     /// # Example:
     /// ```no_run
@@ -343,6 +364,9 @@ impl WebElement {
 
     /// Get the specified attribute.
     ///
+    /// # Errors
+    /// Returns an error if the element is stale or if the WebDriver returns an error.
+    ///
     /// # Example:
     /// ```no_run
     /// # use thirtyfour::prelude::*;
@@ -378,6 +402,9 @@ impl WebElement {
 
     /// Get the specified CSS property.
     ///
+    /// # Errors
+    /// Returns an error if the element is stale or if the WebDriver returns an error.
+    ///
     /// # Example:
     /// ```no_run
     /// # use thirtyfour::prelude::*;
@@ -412,11 +439,17 @@ impl WebElement {
     }
 
     /// Return true if the `WebElement` is currently selected, otherwise false.
+    ///
+    /// # Errors
+    /// Returns an error if the element is stale or if the WebDriver returns an error.
     pub async fn is_selected(&self) -> WebDriverResult<bool> {
         self.handle.cmd(Command::IsElementSelected(self.element_id.clone())).await?.value()
     }
 
     /// Return true if the `WebElement` is currently displayed, otherwise false.
+    ///
+    /// # Errors
+    /// Returns an error if the element is stale or if the WebDriver returns an error.
     ///
     /// # Example
     /// ```no_run
@@ -440,6 +473,9 @@ impl WebElement {
 
     /// Return true if the `WebElement` is currently enabled, otherwise false.
     ///
+    /// # Errors
+    /// Returns an error if the element is stale or if the WebDriver returns an error.
+    ///
     /// # Example
     /// ```no_run
     /// # use thirtyfour::prelude::*;
@@ -462,6 +498,9 @@ impl WebElement {
 
     /// Return true if the `WebElement` is currently clickable (visible and enabled),
     /// otherwise false.
+    ///
+    /// # Errors
+    /// Returns an error if the element is stale or if the WebDriver returns an error.
     ///
     /// # Example
     /// ```no_run
