@@ -2,7 +2,7 @@
 name = "thirtyfour"
 version = "0.36.1"
 authors = ["Steve Pryde <steve@stevepryde.com>", "Vrtgs <vrtgs@vrtgs.xyz>"]
-edition = "2021"
+edition = "2024"
 license = "MIT OR Apache-2.0"
 description = """
 Thirtyfour is a Selenium / WebDriver library for Rust, for automated website UI testing.
@@ -39,7 +39,6 @@ debug_sync_quit = []
 
 
 [dependencies]
-async-trait = "0.1.83"
 base64 = "0.22"
 bytes = "1"
 futures-util = { version = "0.3.31", default-features = false, features = ["alloc"] }
