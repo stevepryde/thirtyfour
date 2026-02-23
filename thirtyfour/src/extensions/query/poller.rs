@@ -18,7 +18,43 @@ pub trait ElementPoller: Debug + Send + 'static {
 /// The start() method will be called at the beginning of the polling loop.
 pub trait IntoElementPoller: Debug {
     /// Start a new poller.
-    fn start(&self) -> Box<dyn ElementPoller + Send + Sync>;
+    fn start(&self) -> AnyElementPoller;
+}
+
+/// Enum wrapper to enable static dispatch instead of dynamic Box<dyn>.
+#[derive(Debug, Clone)]
+pub enum AnyElementPoller {
+    /// The with-timeout variant.
+    WithTimeout(ElementPollerWithTimeout),
+    /// The no-wait (single attempt) variant.
+    NoWait(ElementPollerNoWait),
+}
+
+impl ElementPoller for AnyElementPoller {
+    fn tick(&mut self) -> Pin<Box<dyn Future<Output = bool> + Send + '_>> {
+        match self {
+            Self::WithTimeout(p) => p.tick(),
+            Self::NoWait(p) => p.tick(),
+        }
+    }
+}
+
+impl Default for AnyElementPoller {
+    fn default() -> Self {
+        Self::WithTimeout(ElementPollerWithTimeout::default())
+    }
+}
+
+impl From<ElementPollerWithTimeout> for AnyElementPoller {
+    fn from(p: ElementPollerWithTimeout) -> Self {
+        Self::WithTimeout(p)
+    }
+}
+
+impl From<ElementPollerNoWait> for AnyElementPoller {
+    fn from(p: ElementPollerNoWait) -> Self {
+        Self::NoWait(p)
+    }
 }
 
 /// Poll up to the specified timeout, with the specified interval being the
@@ -26,7 +62,7 @@ pub trait IntoElementPoller: Debug {
 /// If the previous poll attempt took longer than the interval, the next will
 /// start immediately. Once the timeout is reached, a Timeout error will be
 /// returned regardless of the actual number of polling attempts completed.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ElementPollerWithTimeout {
     timeout: Duration,
     interval: Duration,
@@ -85,13 +121,13 @@ impl ElementPoller for ElementPollerWithTimeout {
 }
 
 impl IntoElementPoller for ElementPollerWithTimeout {
-    fn start(&self) -> Box<dyn ElementPoller + Send + Sync> {
-        Box::new(Self::new(self.timeout, self.interval))
+    fn start(&self) -> AnyElementPoller {
+        AnyElementPoller::WithTimeout(ElementPollerWithTimeout::new(self.timeout, self.interval))
     }
 }
 
 /// No polling, single attempt.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ElementPollerNoWait;
 
 impl ElementPoller for ElementPollerNoWait {
@@ -101,8 +137,8 @@ impl ElementPoller for ElementPollerNoWait {
 }
 
 impl IntoElementPoller for ElementPollerNoWait {
-    fn start(&self) -> Box<dyn ElementPoller + Send + Sync> {
-        Box::new(Self)
+    fn start(&self) -> AnyElementPoller {
+        AnyElementPoller::NoWait(ElementPollerNoWait)
     }
 }
 

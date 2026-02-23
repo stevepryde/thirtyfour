@@ -1,5 +1,10 @@
+#[allow(unused)]
+use super::conditions;
 use super::conditions::{collect_arg_slice, handle_errors, negate};
-use super::{conditions, ElementPollerNoWait, ElementPollerWithTimeout, IntoElementPoller};
+use super::poller::{
+    AnyElementPoller, ElementPoller, ElementPollerNoWait, ElementPollerWithTimeout,
+    IntoElementPoller,
+};
 use crate::error::{WebDriverError, WebDriverErrorInner};
 use crate::prelude::WebDriverResult;
 use crate::session::handle::SessionHandle;
@@ -226,7 +231,7 @@ impl ElementQueryOptions {
 #[derive(Debug)]
 pub struct ElementQuery {
     source: ElementQuerySource,
-    poller: Arc<dyn IntoElementPoller + Send + Sync>,
+    poller: AnyElementPoller,
     selectors: Vec<ElementSelector>,
     options: ElementQueryOptions,
 }
@@ -247,11 +252,7 @@ impl ElementQuery {
     ///
     /// See `WebDriver::query()` or `WebElement::query()` rather than instantiating
     /// this directly.
-    pub fn new(
-        source: ElementQuerySource,
-        by: By,
-        poller: Arc<dyn IntoElementPoller + Send + Sync>,
-    ) -> Self {
+    pub fn new(source: ElementQuerySource, by: By, poller: AnyElementPoller) -> Self {
         let selector = ElementSelector::new(by);
         Self {
             source,
@@ -298,8 +299,8 @@ impl ElementQuery {
 
     /// Use the specified ElementPoller for this ElementQuery.
     /// This will not affect the default ElementPoller used for other queries.
-    pub fn with_poller(mut self, poller: Arc<dyn IntoElementPoller + Send + Sync>) -> Self {
-        self.poller = poller;
+    pub fn with_poller(mut self, poller: impl IntoElementPoller) -> Self {
+        self.poller = poller.start();
         self
     }
 
@@ -307,13 +308,13 @@ impl ElementQuery {
     /// after each interval. This will override the poller for this
     /// ElementQuery only.
     pub fn wait(self, timeout: Duration, interval: Duration) -> Self {
-        self.with_poller(Arc::new(ElementPollerWithTimeout::new(timeout, interval)))
+        self.with_poller(ElementPollerWithTimeout::new(timeout, interval))
     }
 
     /// Force this ElementQuery to not wait for the specified condition(s).
     /// This will override the poller for this ElementQuery only.
     pub fn nowait(self) -> Self {
-        self.with_poller(Arc::new(ElementPollerNoWait))
+        self.with_poller(ElementPollerNoWait)
     }
 
     //
@@ -480,7 +481,7 @@ impl ElementQuery {
         }
 
         // Start the poller.
-        let mut poller = self.poller.start();
+        let mut poller = self.poller.clone();
 
         let mut elements = IndexMap::new();
         loop {

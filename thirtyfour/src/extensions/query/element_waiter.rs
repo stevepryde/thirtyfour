@@ -1,5 +1,7 @@
+#[allow(unused)]
+use super::conditions;
 use super::conditions::{collect_arg_slice, handle_errors};
-use super::{conditions, ElementPollerWithTimeout, IntoElementPoller};
+use super::poller::{AnyElementPoller, ElementPoller, ElementPollerWithTimeout, IntoElementPoller};
 use crate::error::WebDriverError;
 use crate::prelude::WebDriverResult;
 use crate::IntoArcStr;
@@ -31,7 +33,7 @@ use stringmatch::Needle;
 #[derive(Debug)]
 pub struct ElementWaiter {
     element: WebElement,
-    poller: Arc<dyn IntoElementPoller + Send + Sync>,
+    poller: AnyElementPoller,
     message: String,
     ignore_errors: bool,
 }
@@ -40,7 +42,7 @@ impl ElementWaiter {
     /// Create a new `ElementWaiter`.
     ///
     /// See `Element::wait_until()` rather than creating this directly.
-    pub fn new(element: WebElement, poller: Arc<dyn IntoElementPoller + Send + Sync>) -> Self {
+    pub fn new(element: WebElement, poller: AnyElementPoller) -> Self {
         Self {
             element,
             poller,
@@ -51,8 +53,8 @@ impl ElementWaiter {
 
     /// Use the specified ElementPoller for this ElementWaiter.
     /// This will not affect the default ElementPoller used for other waits.
-    pub fn with_poller(mut self, poller: Arc<dyn IntoElementPoller + Send + Sync>) -> Self {
-        self.poller = poller;
+    pub fn with_poller(mut self, poller: impl IntoElementPoller) -> Self {
+        self.poller = poller.start();
         self
     }
 
@@ -74,7 +76,7 @@ impl ElementWaiter {
     /// after each interval. This will override the poller for this
     /// ElementWaiter only.
     pub fn wait(self, timeout: Duration, interval: Duration) -> Self {
-        self.with_poller(Arc::new(ElementPollerWithTimeout::new(timeout, interval)))
+        self.with_poller(ElementPollerWithTimeout::new(timeout, interval))
     }
 
     async fn run_poller<'a, F, I, P>(&self, conditions: F) -> WebDriverResult<bool>
@@ -83,7 +85,7 @@ impl ElementWaiter {
         I: IntoIterator<Item = &'a P>,
         P: ElementPredicate + ?Sized + 'a,
     {
-        let mut poller = self.poller.start();
+        let mut poller = self.poller.clone();
         loop {
             let mut conditions_met = true;
             for f in conditions() {

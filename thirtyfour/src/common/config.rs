@@ -1,11 +1,7 @@
 use crate::error::WebDriverError;
-use crate::{
-    extensions::query::{ElementPollerWithTimeout, IntoElementPoller},
-    prelude::WebDriverResult,
-};
+use crate::{extensions::query::AnyElementPoller, prelude::WebDriverResult};
 use const_format::formatcp;
 use http::HeaderValue;
-use std::sync::Arc;
 use std::time::Duration;
 
 /// Configuration options used by a `WebDriver` instance and the related `SessionHandle`.
@@ -17,7 +13,7 @@ pub struct WebDriverConfig {
     /// If true, send the "Connection: keep-alive" header with all requests.
     pub keep_alive: bool,
     /// The default poller to use when performing element queries or waits.
-    pub poller: Arc<dyn IntoElementPoller + Send + Sync>,
+    pub poller: AnyElementPoller,
     /// The user agent to use when sending commands to the webdriver server.
     pub user_agent: HeaderValue,
     /// The timeout duration for reqwest client requests.
@@ -69,7 +65,7 @@ impl WebDriverConfig {
 #[derive(Debug)]
 pub struct WebDriverConfigBuilder {
     keep_alive: bool,
-    poller: Option<Arc<dyn IntoElementPoller + Send + Sync>>,
+    poller: Option<AnyElementPoller>,
     user_agent: Option<WebDriverResult<HeaderValue>>,
     reqwest_timeout: Duration,
 }
@@ -98,8 +94,8 @@ impl WebDriverConfigBuilder {
     }
 
     /// Set the specified element poller.
-    pub fn poller(mut self, poller: Arc<dyn IntoElementPoller + Send + Sync>) -> Self {
-        self.poller = Some(poller);
+    pub fn poller(mut self, poller: impl Into<AnyElementPoller>) -> Self {
+        self.poller = Some(poller.into());
         self
     }
 
@@ -123,7 +119,7 @@ impl WebDriverConfigBuilder {
     pub fn build(self) -> WebDriverResult<WebDriverConfig> {
         Ok(WebDriverConfig {
             keep_alive: self.keep_alive,
-            poller: self.poller.unwrap_or_else(|| Arc::new(ElementPollerWithTimeout::default())),
+            poller: self.poller.unwrap_or_default(),
             user_agent: self.user_agent.transpose()?.unwrap_or(WebDriverConfig::DEFAULT_USER_AGENT),
             reqwest_timeout: self.reqwest_timeout,
         })
