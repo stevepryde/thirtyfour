@@ -15,8 +15,8 @@ use crate::{
 
 /// Start a new WebDriver session, returning the session id and the
 /// capabilities JSON that was received back from the server.
-pub async fn start_session(
-    http_client: &dyn HttpClient,
+pub async fn start_session<C: HttpClient>(
+    http_client: &C,
     server_url: &Url,
     config: &WebDriverConfig,
     capabilities: Capabilities,

@@ -1,15 +1,16 @@
 use crate::support::sleep;
 use std::fmt::Debug;
+use std::future::Future;
+use std::pin::Pin;
 use std::time::{Duration, Instant};
 
 /// Trait for implementing the element polling strategy.
 ///
 /// Each time the element condition is not met, the `tick()` method will be
 /// called. Upon returning `false`, the polling loop will terminate.
-#[async_trait::async_trait]
-pub trait ElementPoller: Debug {
+pub trait ElementPoller: Debug + Send + 'static {
     /// Process the poller forward by one tick.
-    async fn tick(&mut self) -> bool;
+    fn tick(&mut self) -> Pin<Box<dyn Future<Output = bool> + Send + '_>>;
 }
 
 /// Trait for returning a struct that implements ElementPoller.
@@ -51,27 +52,35 @@ impl Default for ElementPollerWithTimeout {
     }
 }
 
-#[async_trait::async_trait]
 impl ElementPoller for ElementPollerWithTimeout {
-    async fn tick(&mut self) -> bool {
+    fn tick(&mut self) -> Pin<Box<dyn Future<Output = bool> + Send + '_>> {
+        let timeout = self.timeout;
+        let interval = self.interval;
+
+        // Capture mutable state before async block
+        let cur_tries = self.cur_tries;
+        let start = self.start;
+
+        // Increment for next call
         self.cur_tries += 1;
 
-        if self.start.elapsed() >= self.timeout {
-            return false;
-        }
+        Box::pin(async move {
+            if start.elapsed() >= timeout {
+                return false;
+            }
 
-        // The Next poll is due no earlier than this long after the first poll started.
-        let minimum_elapsed = self.interval.saturating_mul(self.cur_tries);
+            // The Next poll is due no earlier than this long after the first poll started.
+            let minimum_elapsed = interval.saturating_mul(cur_tries + 1);
 
-        // But this much time has elapsed since the first poll started.
-        let actual_elapsed = self.start.elapsed();
+            // But this much time has elapsed since the first poll started.
+            let actual_elapsed = start.elapsed();
 
-        if actual_elapsed < minimum_elapsed {
-            // So we need to wait this much longer.
-            sleep(minimum_elapsed - actual_elapsed).await;
-        }
+            if actual_elapsed < minimum_elapsed {
+                sleep(minimum_elapsed - actual_elapsed).await;
+            }
 
-        true
+            true
+        })
     }
 }
 
@@ -85,10 +94,9 @@ impl IntoElementPoller for ElementPollerWithTimeout {
 #[derive(Debug)]
 pub struct ElementPollerNoWait;
 
-#[async_trait::async_trait]
 impl ElementPoller for ElementPollerNoWait {
-    async fn tick(&mut self) -> bool {
-        false
+    fn tick(&mut self) -> Pin<Box<dyn Future<Output = bool> + Send + '_>> {
+        Box::pin(async move { false })
     }
 }
 

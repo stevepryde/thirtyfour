@@ -28,11 +28,10 @@ categories = [
 ]
 
 [features]
-default = ["reqwest", "rustls-tls", "component", "selenium-manager"]
+default = ["reqwest", "rustls-tls", "component"]
 reqwest = ["dep:reqwest"]
 rustls-tls = ["reqwest/rustls-tls"]
 native-tls = ["reqwest/native-tls"]
-selenium-manager = ["dep:selenium-manager", "libc"]
 tokio-multi-threaded = ["tokio/rt-multi-thread"]
 component = ["thirtyfour-macros"]
 debug_sync_quit = []
@@ -46,7 +45,7 @@ http = "1"
 indexmap = "2"
 libc = { version = "0.2", optional = true }
 pastey = "0.1"
-selenium-manager = { path = "../selenium/rust", optional = true }
+# selenium-manager = { path = "../selenium/rust", optional = true }
 serde = { version = "1.0.210", features = ["derive", "rc"] }
 serde_json = { version = "1.0.132", features = ["preserve_order"] }
 serde_repr = "0.1.19"

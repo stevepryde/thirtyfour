@@ -1,3 +1,5 @@
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 
 use base64::Engine;
@@ -36,63 +38,78 @@ impl<'a, T: Into<Option<&'a Value>>> From<T> for Body<'a> {
 }
 
 /// Trait used to implement a HTTP client.
-#[async_trait::async_trait]
-pub trait HttpClient: Send + Sync + 'static {
+pub trait HttpClient: Clone + Send + Sync + 'static {
     /// Send an HTTP request and return the response.
-    async fn send(&self, request: Request<Body<'_>>) -> WebDriverResult<Response<Bytes>>;
+    fn send<'a>(
+        &'a self,
+        request: Request<Body<'a>>,
+    ) -> Pin<Box<dyn Future<Output = WebDriverResult<Response<Bytes>>> + Send + 'a>>;
 
     /// Make a new HttpClient, that **has no connection to the previous I/O drivers of self's runtime**
     /// this is used when dropping the webdriver but the old runtime has already shut down
     /// or couldn't prove its availability
     /// this isn't a simple clone,
     /// this new client needs to be able to run in a new runtime even if the old runtime has been destroyed
-    //
-    // needed for object safety
-    #[allow(clippy::new_ret_no_self)]
-    #[allow(clippy::wrong_self_convention)]
-    async fn new(&self) -> Arc<dyn HttpClient>;
+    fn new(&self) -> Pin<Box<dyn Future<Output = Self> + Send + '_>>
+    where
+        Self: Sized;
 }
 
 #[cfg(feature = "reqwest")]
-#[async_trait::async_trait]
 impl HttpClient for reqwest::Client {
-    async fn send(&self, request: Request<Body<'_>>) -> WebDriverResult<Response<Bytes>> {
-        let (parts, body) = request.into_parts();
+    fn send<'a>(
+        &'a self,
+        request: Request<Body<'a>>,
+    ) -> Pin<Box<dyn Future<Output = WebDriverResult<Response<Bytes>>> + Send + 'a>> {
+        // Extract all needed data upfront before entering async
+        let method = request.method().clone();
+        let uri = request.uri().to_string();
 
-        let mut req = self.request(parts.method, parts.uri.to_string());
-        for (key, value) in parts.headers.into_iter() {
-            let key = match key {
-                Some(x) => x,
-                None => continue,
-            };
-            req = req.header(key, value);
-        }
-        match body {
-            Body::Empty => req = req.body(reqwest::Body::default()),
-            Body::Json(json) => {
-                req = req.json(json);
+        let headers: Vec<(http::HeaderName, http::HeaderValue)> =
+            request.headers().iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+
+        let body = match request.into_body() {
+            Body::Empty => None,
+            Body::Json(json) => Some(json),
+        };
+
+        // Clone the client for use in async block
+        let client = self.clone();
+
+        Box::pin(async move {
+            let mut req = client.request(method, uri);
+
+            for (key, value) in headers.into_iter() {
+                req = req.header(key, value);
             }
-        }
 
-        let resp = req.send().await?;
-        let status = resp.status();
-        let mut builder = Response::builder();
+            match body {
+                None => req = req.body(reqwest::Body::default()),
+                Some(json) => {
+                    req = req.json(json);
+                }
+            }
 
-        builder = builder.status(status);
-        for (key, value) in resp.headers().iter() {
-            builder = builder.header(key.clone(), value.clone());
-        }
+            let resp = req.send().await?;
+            let status = resp.status();
+            let mut builder = Response::builder();
 
-        let body = resp.bytes().await?;
-        let body_str = String::from_utf8_lossy(&body).into_owned();
-        let resp = builder
-            .body(body)
-            .map_err(|_| WebDriverError::UnknownResponse(status.as_u16(), body_str))?;
-        Ok(resp)
+            builder = builder.status(status);
+            for (key, value) in resp.headers().iter() {
+                builder = builder.header(key.clone(), value.clone());
+            }
+
+            let body = resp.bytes().await?;
+            let body_str = String::from_utf8_lossy(&body).into_owned();
+            let resp = builder
+                .body(body)
+                .map_err(|_| WebDriverError::UnknownResponse(status.as_u16(), body_str))?;
+            Ok(resp)
+        })
     }
 
-    async fn new(&self) -> Arc<dyn HttpClient> {
-        Arc::new(self.clone())
+    fn new(&self) -> Pin<Box<dyn Future<Output = Self> + Send + '_>> {
+        Box::pin(async move { self.clone() })
     }
 }
 
@@ -129,16 +146,21 @@ pub(crate) fn create_reqwest_client(timeout: std::time::Duration) -> reqwest::Cl
 pub(crate) mod null_client {
     use super::*;
 
+    #[derive(Clone)]
     pub struct NullHttpClient;
 
-    #[async_trait::async_trait]
     impl HttpClient for NullHttpClient {
-        async fn send(&self, _: Request<Body<'_>>) -> WebDriverResult<Response<Bytes>> {
-            panic!("Either enable the `reqwest` feature or implement your own `HttpClient`")
+        fn send<'a>(
+            &'a self,
+            _: Request<Body<'a>>,
+        ) -> Pin<Box<dyn Future<Output = WebDriverResult<Response<Bytes>>> + Send + 'a>> {
+            Box::pin(async move {
+                panic!("Either enable the `reqwest` feature or implement your own `HttpClient`")
+            })
         }
 
-        async fn new(&self) -> Arc<dyn HttpClient> {
-            Arc::new(NullHttpClient)
+        fn new(&self) -> Pin<Box<dyn Future<Output = Self> + Send + '_>> {
+            Box::pin(async move { self.clone() })
         }
     }
 
@@ -149,7 +171,7 @@ pub(crate) mod null_client {
 
 #[tracing::instrument(skip_all)]
 pub(crate) async fn run_webdriver_cmd(
-    client: &dyn HttpClient,
+    client: &impl HttpClient,
     request_data: &RequestData,
     server_url: &Url,
     config: &WebDriverConfig,

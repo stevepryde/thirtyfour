@@ -28,7 +28,7 @@ use super::http::{run_webdriver_cmd, CmdResponse, HttpClient};
 /// to allow sending commands to the underlying WebDriver.
 pub struct SessionHandle {
     /// The HTTP client for performing webdriver requests.
-    pub client: Arc<dyn HttpClient>,
+    pub client: Arc<reqwest::Client>,
     /// The webdriver server URL.
     server_url: Arc<Url>,
     /// The session id for this webdriver session.
@@ -51,7 +51,7 @@ impl Debug for SessionHandle {
 impl SessionHandle {
     /// Create new SessionHandle.
     pub fn new(
-        client: Arc<dyn HttpClient>,
+        client: Arc<reqwest::Client>,
         server_url: impl IntoUrl,
         session_id: SessionId,
     ) -> WebDriverResult<Self> {
@@ -60,7 +60,7 @@ impl SessionHandle {
 
     /// Create new `SessionHandle` with the specified `WebDriverConfig`.
     pub(crate) fn new_with_config(
-        client: Arc<dyn HttpClient>,
+        client: Arc<reqwest::Client>,
         server_url: impl IntoUrl,
         session_id: SessionId,
         config: WebDriverConfig,
@@ -77,7 +77,7 @@ impl SessionHandle {
     /// Clone this session handle but attach the specified `WebDriverConfig`.
     ///
     /// See `WebDriver::clone_with_config()`.
-    pub(crate) fn clone_with_config(self: &SessionHandle, config: WebDriverConfig) -> Self {
+    pub(crate) fn clone_with_config(&self, config: WebDriverConfig) -> Self {
         Self {
             client: Arc::clone(&self.client),
             server_url: Arc::clone(&self.server_url),
@@ -1241,7 +1241,8 @@ impl Drop for SessionHandle {
         support::spawn_blocked_future(|spawned| async move {
             if spawned {
                 // Old I/O drivers may be destroyed at this point
-                this.client = this.client.new().await;
+                let new_client = this.client.new().await;
+                this.client = Arc::new(new_client);
             }
             let _ = this.quit().await;
         });

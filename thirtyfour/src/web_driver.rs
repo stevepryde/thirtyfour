@@ -100,11 +100,12 @@ impl WebDriver {
     /// Create a new `WebDriver` with the specified `WebDriverConfig`.
     ///
     /// Use `WebDriverConfig::builder().build()` to construct the config.
+    #[cfg(feature = "reqwest")]
     pub async fn new_with_config_and_client<S, C>(
         server_url: S,
         capabilities: C,
         config: WebDriverConfig,
-        client: impl HttpClient,
+        client: reqwest::Client,
     ) -> WebDriverResult<Self>
     where
         S: Into<String>,
@@ -119,7 +120,38 @@ impl WebDriver {
         let client = Arc::new(client);
         let session_id = start_session(client.as_ref(), &server_url, &config, capabilities).await?;
 
-        let handle = SessionHandle::new_with_config(client, server_url, session_id, config)?;
+        let handle =
+            SessionHandle::new_with_config(Arc::clone(&client), server_url, session_id, config)?;
+        Ok(Self {
+            handle: Arc::new(handle),
+        })
+    }
+
+    /// Create a new `WebDriver` with the specified `WebDriverConfig`.
+    ///
+    /// Use `WebDriverConfig::builder().build()` to construct the config.
+    #[cfg(not(feature = "reqwest"))]
+    pub async fn new_with_config_and_client<S, C>(
+        server_url: S,
+        capabilities: C,
+        config: WebDriverConfig,
+        client: crate::session::http::null_client::NullHttpClient,
+    ) -> WebDriverResult<Self>
+    where
+        S: Into<String>,
+        C: Into<Capabilities>,
+    {
+        let capabilities = capabilities.into();
+        let server_url = server_url
+            .into()
+            .parse()
+            .map_err(|e| WebDriverError::ParseError(format!("invalid url: {e}")))?;
+
+        let client = Arc::new(client);
+        let session_id = start_session(client.as_ref(), &server_url, &config, capabilities).await?;
+
+        let handle =
+            SessionHandle::new_with_config(Arc::clone(&client), server_url, session_id, config)?;
         Ok(Self {
             handle: Arc::new(handle),
         })
