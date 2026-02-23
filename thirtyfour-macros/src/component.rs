@@ -16,8 +16,7 @@ pub fn expand_component_derive(ast: syn::DeriveInput) -> TokenStream {
     ParsedOptions::try_from(ast)
         .and_then(ComponentArgs::try_from)
         .as_ref()
-        .map(ComponentArgs::to_token_stream)
-        .unwrap_or_else(syn::Error::to_compile_error)
+        .map_or_else(syn::Error::to_compile_error, ComponentArgs::to_token_stream)
 }
 
 struct ParsedOptions {
@@ -98,6 +97,7 @@ impl TryFrom<ParsedOptions> for ComponentArgs {
             field_initialisers.push(initialiser);
         }
 
+        #[allow(clippy::manual_let_else)]
         let base_ident = match base_ident {
             Some(x) => x,
             None => {
@@ -179,7 +179,7 @@ impl ParsedField {
         self.attrs.iter().find(|x| x.path().is_ident("by"))
     }
 
-    /// Get the definition for this field that should go in new().
+    /// Get the definition for this field that should go in `new()`.
     ///
     /// ```ignore
     /// Self {
@@ -195,7 +195,7 @@ impl ParsedField {
         }
     }
 
-    /// Get the initialiser for this field that should go in new().
+    /// Get the initialiser for this field that should go in `new()`.
     ///
     /// ```ignore
     /// let some_field = ...; // <-- this (including any attributes as necessary)
@@ -270,7 +270,7 @@ enum ByToken {
     ClassName(Literal),
     Testid(Literal),
     Multi,
-    /// NotEmpty is the default but can be specified to be explicit.
+    /// `NotEmpty` is the default but can be specified to be explicit.
     NotEmpty,
     AllowEmpty,
     /// Single is the default but can be specified to be explicit.
@@ -346,6 +346,7 @@ impl ByToken {
 impl TryFrom<Meta> for ByToken {
     type Error = syn::Error;
 
+    #[allow(clippy::too_many_lines)]
     fn try_from(value: Meta) -> Result<Self, Self::Error> {
         match value {
             Meta::Path(p) => match p {
@@ -496,13 +497,13 @@ impl ByTokens {
     pub fn validate(self, span: Span) -> syn::Result<Self> {
         let mut unique_tokens = HashSet::new();
 
-        for token in self.tokens.iter() {
+        for token in &self.tokens {
             let t = token.get_unique_type();
             if !unique_tokens.insert(t) {
                 bail!(span, "duplicate token '{t}' (cannot specify multiple)")
             }
         }
-        for token in self.tokens.iter() {
+        for token in &self.tokens {
             let disallowed = token.get_disallowed_types();
             for t in disallowed {
                 if unique_tokens.contains(t) {
@@ -525,7 +526,7 @@ impl ByTokens {
     pub fn take_by(&mut self) -> TokenStream {
         let mut ret = Vec::new();
         let tokens_in = std::mem::take(&mut self.tokens);
-        for token in tokens_in.into_iter() {
+        for token in tokens_in {
             match token {
                 ByToken::Id(id) => ret.push(quote! { By::Id(#id) }),
                 ByToken::Tag(tag) => ret.push(quote! { By::Tag(#tag) }),
@@ -825,26 +826,27 @@ impl ToTokens for SingleResolverArgs {
                 wait,
                 nowait,
             } => {
-                let ignore_errors_ident = match ignore_errors {
-                    Some(true) => quote!(::std::option::Option::Some(true)),
-                    _ => quote!(::std::option::Option::None),
+                let ignore_errors_ident = if let Some(true) = ignore_errors {
+                    quote!(::std::option::Option::Some(true))
+                } else {
+                    quote!(::std::option::Option::None)
                 };
-                let description_ident = match description {
-                    Some(desc) => {
-                        quote!(::std::option::Option::Some(::std::string::ToString::to_string(&#desc)))
-                    }
-                    None => quote!(::std::option::Option::None),
+                let description_ident = if let Some(desc) = description {
+                    quote!(::std::option::Option::Some(::std::string::ToString::to_string(&#desc)))
+                } else {
+                    quote!(::std::option::Option::None)
                 };
                 let wait_ident = match wait {
                     Some(opts) => quote!(#opts),
-                    None => match nowait {
-                        Some(true) => {
+                    None => {
+                        if let Some(true) = nowait {
                             quote! {
                                 ::std::option::Option::Some(::thirtyfour::extensions::query::ElementQueryWaitOptions::NoWait)
                             }
+                        } else {
+                            quote!(::std::option::Option::None)
                         }
-                        _ => quote!(::std::option::Option::None),
-                    },
+                    }
                 };
                 let opts_ident = quote!(
                     ::thirtyfour::extensions::query::ElementQueryOptions::default()
@@ -940,26 +942,27 @@ impl ToTokens for MultiResolverArgs {
                 wait,
                 nowait,
             } => {
-                let ignore_errors_ident = match ignore_errors {
-                    Some(true) => quote!(::std::option::Option::Some(true)),
-                    _ => quote!(::std::option::Option::None),
+                let ignore_errors_ident = if let Some(true) = ignore_errors {
+                    quote!(::std::option::Option::Some(true))
+                } else {
+                    quote!(::std::option::Option::None)
                 };
-                let description_ident = match description {
-                    Some(desc) => {
-                        quote!(::std::option::Option::Some(::std::string::ToString::to_string(&#desc)))
-                    }
-                    None => quote!(::std::option::Option::None),
+                let description_ident = if let Some(desc) = description {
+                    quote!(::std::option::Option::Some(::std::string::ToString::to_string(&#desc)))
+                } else {
+                    quote!(::std::option::Option::None)
                 };
                 let wait_ident = match wait {
                     Some(opts) => quote!(#opts),
-                    None => match nowait {
-                        Some(true) => {
+                    None => {
+                        if let Some(true) = nowait {
                             quote! {
                                 Some(::thirtyfour::extensions::query::ElementQueryWaitOptions::NoWait)
                             }
+                        } else {
+                            quote!(None)
                         }
-                        _ => quote!(None),
-                    },
+                    }
                 };
                 let opts_ident = quote!(
                     ::thirtyfour::extensions::query::ElementQueryOptions::default()
@@ -985,7 +988,7 @@ impl ToTokens for MultiResolverArgs {
     }
 }
 
-/// Converts GenericType<Args> to GenericType::<Args> to call ::new_*() on it.
+/// Converts `GenericType`<Args> to `GenericType::`<Args> to call `::new`_*() on it.
 ///
 /// Non-generic types will be returned as is.
 fn fix_type(mut ty: syn::Path) -> TokenStream {

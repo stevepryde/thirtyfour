@@ -1,4 +1,5 @@
 use futures_util::future::{BoxFuture, FutureExt};
+use std::convert::TryFrom;
 use std::future::Future;
 use std::sync::Arc;
 use std::{fmt, time::Duration};
@@ -109,17 +110,31 @@ pub struct ElementRect {
 
 impl ElementRect {
     /// The coordinates of the rectangle center point, rounded to integers.
-    #[must_use] 
+    ///
+    /// Returns `(0, 0)` if coordinates are NaN or infinite.
+    #[must_use]
     pub fn icenter(&self) -> (i64, i64) {
         let (x, y) = self.center();
-        (x as i64, y as i64)
+        (round_to_i64(x), round_to_i64(y))
     }
 
     /// The coordinates of the rectangle center point.
-    #[must_use] 
+    #[must_use]
     pub fn center(&self) -> (f64, f64) {
         (self.x + (self.width / 2.0), self.y + (self.height / 2.0))
     }
+}
+
+fn round_to_i64(value: f64) -> i64 {
+    const MAX_SAFE_INT: f64 = 9_007_199_254_740_992.0;
+    if value.is_finite() && value.abs() <= MAX_SAFE_INT {
+        let r = value.round();
+        if r.abs() <= MAX_SAFE_INT {
+            // Use ToPrimitive for checked conversion that clippy understands as safe
+            return num_traits::ToPrimitive::to_i64(&r).unwrap_or(0);
+        }
+    }
+    0
 }
 
 /// Helper to Serialize/Deserialize `ElementRef` from JSON Value.
@@ -142,7 +157,7 @@ pub enum ElementRef {
 
 impl ElementRef {
     /// The element id, as returned by the webdriver.
-    #[must_use] 
+    #[must_use]
     pub fn id(&self) -> &str {
         match self {
             ElementRef::Element {
@@ -182,7 +197,7 @@ impl SessionId {
     /// Create a placeholder `SessionId` for cases where it's not used.
     ///
     /// E.g., session creation.
-    #[must_use] 
+    #[must_use]
     pub fn null() -> Self {
         SessionId {
             id: Arc::from(""),
@@ -274,7 +289,7 @@ pub struct Rect {
 
 impl Rect {
     /// Create a new `Rect`.
-    #[must_use] 
+    #[must_use]
     pub fn new(x: i64, y: i64, width: i64, height: i64) -> Self {
         Rect {
             x,
@@ -350,41 +365,41 @@ pub struct OptionRect {
 
 impl OptionRect {
     /// Create a new `OptionRect`.
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Default::default()
     }
 
     /// Set the x coordinate of the top-left corner.
-    #[must_use] 
+    #[must_use]
     pub fn with_x(mut self, value: i64) -> Self {
         self.x = Some(value);
         self
     }
 
     /// Set the y coordinate of the top-left corner.
-    #[must_use] 
+    #[must_use]
     pub fn with_y(mut self, value: i64) -> Self {
         self.y = Some(value);
         self
     }
 
     /// Set the rectangle width.
-    #[must_use] 
+    #[must_use]
     pub fn with_width(mut self, value: i64) -> Self {
         self.width = Some(value);
         self
     }
 
     /// Set the rectangle height.
-    #[must_use] 
+    #[must_use]
     pub fn with_height(mut self, value: i64) -> Self {
         self.height = Some(value);
         self
     }
 
     /// Set the rectangle position.
-    #[must_use] 
+    #[must_use]
     pub fn with_pos(mut self, x: i64, y: i64) -> Self {
         self.x = Some(x);
         self.y = Some(y);
@@ -392,7 +407,7 @@ impl OptionRect {
     }
 
     /// Set the rectangle size.
-    #[must_use] 
+    #[must_use]
     pub fn with_size(mut self, width: i64, height: i64) -> Self {
         self.width = Some(width);
         self.height = Some(height);
@@ -438,16 +453,16 @@ impl Default for TimeoutConfiguration {
 
 impl TimeoutConfiguration {
     /// Create a new `TimeoutConfiguration`.
-    #[must_use] 
+    #[must_use]
     pub fn new(
         script: Option<Duration>,
         page_load: Option<Duration>,
         implicit: Option<Duration>,
     ) -> Self {
         TimeoutConfiguration {
-            script: script.map(|x| x.as_millis() as u64),
-            page_load: page_load.map(|x| x.as_millis() as u64),
-            implicit: implicit.map(|x| x.as_millis() as u64),
+            script: script.map(|x| u64::try_from(x.as_millis()).unwrap_or(u64::MAX)),
+            page_load: page_load.map(|x| u64::try_from(x.as_millis()).unwrap_or(u64::MAX)),
+            implicit: implicit.map(|x| u64::try_from(x.as_millis()).unwrap_or(u64::MAX)),
         }
     }
 
@@ -458,7 +473,7 @@ impl TimeoutConfiguration {
 
     /// Set the script timeout.
     pub fn set_script(&mut self, timeout: Option<Duration>) {
-        self.script = timeout.map(|x| x.as_millis() as u64);
+        self.script = timeout.and_then(|x| u64::try_from(x.as_millis()).ok());
     }
 
     /// Get the page load timeout, if set.
@@ -468,7 +483,7 @@ impl TimeoutConfiguration {
 
     /// Set the page load timeout.
     pub fn set_page_load(&mut self, timeout: Option<Duration>) {
-        self.page_load = timeout.map(|x| x.as_millis() as u64);
+        self.page_load = timeout.and_then(|x| u64::try_from(x.as_millis()).ok());
     }
 
     /// Get the implicit wait timeout, if set.
@@ -478,7 +493,7 @@ impl TimeoutConfiguration {
 
     /// Set the implicit wait timeout.
     pub fn set_implicit(&mut self, timeout: Option<Duration>) {
-        self.implicit = timeout.map(|x| x.as_millis() as u64);
+        self.implicit = timeout.and_then(|x| u64::try_from(x.as_millis()).ok());
     }
 }
 

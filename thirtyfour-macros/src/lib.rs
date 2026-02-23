@@ -1,4 +1,4 @@
-//! Thirtyfour is a Selenium / WebDriver library for Rust, for automated website UI testing.
+//! Thirtyfour is a Selenium / `WebDriver` library for Rust, for automated website UI testing.
 //!
 //! This crate provides proc macros for use with [thirtyfour](https://docs.rs/thirtyfour).
 //!
@@ -23,7 +23,7 @@ pub(crate) use bail;
 /// A `Component` contains a base [`WebElement`] from which all element queries will be performed.
 ///
 /// All elements in the component are descendents of the base element (or at least the
-/// starting point for an element query, since XPath queries can access parent nodes).
+/// starting point for an element query, since `XPath` queries can access parent nodes).
 ///
 /// Components perform element lookups via [`ElementResolver`]s, which lazily perform an
 /// element query to resolve a [`WebElement`], and then cache the result for later access.
@@ -47,7 +47,7 @@ pub(crate) use bail;
 /// - `tag = "..."`: Select element by tag name.
 /// - `link = "..."`: Select element by link text.
 /// - `css = "..."`: Select element by CSS.
-/// - `xpath = "..."`: Select element by XPath.
+/// - `xpath = "..."`: Select element by `XPath`.
 /// - `name = "..."`: Select element by name.
 /// - `class = "..."`: Select element by class name.
 ///

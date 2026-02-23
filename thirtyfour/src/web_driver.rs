@@ -179,7 +179,7 @@ impl WebDriver {
     ///           and possibly panic or report back to the user
     ///
     /// # Errors
-    /// Returns an error if the WebDriver returns an error during session termination.
+    /// Returns an error if the `WebDriver` returns an error during session termination.
     pub async fn quit(self) -> WebDriverResult<()> {
         self.handle.quit().await
     }

@@ -136,7 +136,7 @@ impl WebElement {
     /// Get the bounding rectangle for this `WebElement`.
     ///
     /// # Errors
-    /// Returns an error if the element is stale or if the WebDriver returns an error.
+    /// Returns an error if the element is stale or if the `WebDriver` returns an error.
     ///
     /// # Example:
     /// ```no_run
@@ -168,7 +168,7 @@ impl WebElement {
     /// Get the tag name for this `WebElement`.
     ///
     /// # Errors
-    /// Returns an error if the element is stale or if the WebDriver returns an error.
+    /// Returns an error if the element is stale or if the `WebDriver` returns an error.
     ///
     /// # Example:
     /// ```no_run
@@ -260,7 +260,7 @@ impl WebElement {
     /// Convenience method for getting the (optional) value property of this element.
     ///
     /// # Errors
-    /// Returns an error if the element is stale or if the WebDriver returns an error.
+    /// Returns an error if the element is stale or if the `WebDriver` returns an error.
     pub async fn value(&self) -> WebDriverResult<Option<String>> {
         self.prop("value").await
     }
@@ -268,7 +268,7 @@ impl WebElement {
     /// Click the `WebElement`.
     ///
     /// # Errors
-    /// Returns an error if the element is not clickable, is stale, or if the WebDriver returns an error.
+    /// Returns an error if the element is not clickable, is stale, or if the `WebDriver` returns an error.
     ///
     /// # Example:
     /// ```no_run
@@ -294,7 +294,7 @@ impl WebElement {
     /// Clear the `WebElement` contents.
     ///
     /// # Errors
-    /// Returns an error if the element is not editable, is stale, or if the WebDriver returns an error.
+    /// Returns an error if the element is not editable, is stale, or if the `WebDriver` returns an error.
     ///
     /// # Example:
     /// ```no_run
@@ -320,7 +320,7 @@ impl WebElement {
     /// Get the specified property.
     ///
     /// # Errors
-    /// Returns an error if the element is stale or if the WebDriver returns an error.
+    /// Returns an error if the element is stale or if the `WebDriver` returns an error.
     ///
     /// # Example:
     /// ```no_run
@@ -365,7 +365,7 @@ impl WebElement {
     /// Get the specified attribute.
     ///
     /// # Errors
-    /// Returns an error if the element is stale or if the WebDriver returns an error.
+    /// Returns an error if the element is stale or if the `WebDriver` returns an error.
     ///
     /// # Example:
     /// ```no_run
@@ -403,7 +403,7 @@ impl WebElement {
     /// Get the specified CSS property.
     ///
     /// # Errors
-    /// Returns an error if the element is stale or if the WebDriver returns an error.
+    /// Returns an error if the element is stale or if the `WebDriver` returns an error.
     ///
     /// # Example:
     /// ```no_run
@@ -441,7 +441,7 @@ impl WebElement {
     /// Return true if the `WebElement` is currently selected, otherwise false.
     ///
     /// # Errors
-    /// Returns an error if the element is stale or if the WebDriver returns an error.
+    /// Returns an error if the element is stale or if the `WebDriver` returns an error.
     pub async fn is_selected(&self) -> WebDriverResult<bool> {
         self.handle.cmd(Command::IsElementSelected(self.element_id.clone())).await?.value()
     }
@@ -449,7 +449,7 @@ impl WebElement {
     /// Return true if the `WebElement` is currently displayed, otherwise false.
     ///
     /// # Errors
-    /// Returns an error if the element is stale or if the WebDriver returns an error.
+    /// Returns an error if the element is stale or if the `WebDriver` returns an error.
     ///
     /// # Example
     /// ```no_run
@@ -474,7 +474,7 @@ impl WebElement {
     /// Return true if the `WebElement` is currently enabled, otherwise false.
     ///
     /// # Errors
-    /// Returns an error if the element is stale or if the WebDriver returns an error.
+    /// Returns an error if the element is stale or if the `WebDriver` returns an error.
     ///
     /// # Example
     /// ```no_run
@@ -500,7 +500,7 @@ impl WebElement {
     /// otherwise false.
     ///
     /// # Errors
-    /// Returns an error if the element is stale or if the WebDriver returns an error.
+    /// Returns an error if the element is stale or if the `WebDriver` returns an error.
     ///
     /// # Example
     /// ```no_run

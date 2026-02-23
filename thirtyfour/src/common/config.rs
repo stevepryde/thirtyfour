@@ -121,7 +121,7 @@ impl WebDriverConfigBuilder {
     /// Build `WebDriverConfig` using builder options.
     ///
     /// # Errors
-    /// Returns an error if the user agent cannot be converted to a valid HeaderValue.
+    /// Returns an error if the `user agent` cannot be converted to a valid `HeaderValue`.
     pub fn build(self) -> WebDriverResult<WebDriverConfig> {
         Ok(WebDriverConfig {
             keep_alive: self.keep_alive,

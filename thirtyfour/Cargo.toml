@@ -65,6 +65,7 @@ cfg-if = "1.0.0"
 tracing = "0.1"
 url = "2.5.2"
 const_format = "0.2.33"
+num-traits = "0.2"
 
 # Optional HTTP client. Not needed if you supply your own.
 reqwest = { version = "0.12.8", default-features = false, features = [
