@@ -111,9 +111,10 @@ impl ElementWaiter {
 
     /// Wait for the specified condition to be true.
     pub async fn condition(self, f: impl ElementPredicate) -> WebDriverResult<()> {
-        match self.run_poller(|| [&f].into_iter()).await? {
-            true => Ok(()),
-            false => self.timeout(),
+        if self.run_poller(|| [&f].into_iter()).await? {
+            Ok(())
+        } else {
+            self.timeout()
         }
     }
 
@@ -122,9 +123,10 @@ impl ElementWaiter {
         self,
         conditions: Vec<Box<DynElementPredicate>>,
     ) -> WebDriverResult<()> {
-        match self.run_poller(|| conditions.iter().map(Box::deref)).await? {
-            true => Ok(()),
-            false => self.timeout(),
+        if self.run_poller(|| conditions.iter().map(Box::deref)).await? {
+            Ok(())
+        } else {
+            self.timeout()
         }
     }
 

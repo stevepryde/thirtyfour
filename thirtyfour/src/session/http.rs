@@ -50,6 +50,7 @@ pub trait HttpClient: Clone + Send + Sync + 'static {
     /// or couldn't prove its availability
     /// this isn't a simple clone,
     /// this new client needs to be able to run in a new runtime even if the old runtime has been destroyed
+    #[allow(clippy::wrong_self_convention)]
     fn new(&self) -> Pin<Box<dyn Future<Output = Self> + Send + '_>>
     where
         Self: Sized;
@@ -79,7 +80,7 @@ impl HttpClient for reqwest::Client {
         Box::pin(async move {
             let mut req = client.request(method, uri);
 
-            for (key, value) in headers.into_iter() {
+            for (key, value) in &headers {
                 req = req.header(key, value);
             }
 
@@ -95,7 +96,7 @@ impl HttpClient for reqwest::Client {
             let mut builder = Response::builder();
 
             builder = builder.status(status);
-            for (key, value) in resp.headers().iter() {
+            for (key, value) in resp.headers() {
                 builder = builder.header(key.clone(), value.clone());
             }
 
@@ -196,7 +197,7 @@ pub(crate) async fn run_webdriver_cmd(
             url_username,
             url_password.unwrap_or_default()
         ));
-        builder = builder.header(AUTHORIZATION, format!("Basic {}", base64_string));
+        builder = builder.header(AUTHORIZATION, format!("Basic {base64_string}"));
     }
 
     // Optional headers.
@@ -251,7 +252,7 @@ impl CmdResponse {
     /// Deserialize the value of the response.
     pub fn value<T: serde::de::DeserializeOwned>(self) -> WebDriverResult<T> {
         serde_json::from_value(self.value_json()?)
-            .map_err(|e| WebDriverError::Json(format!("Failed to decode response body: {:?}", e)))
+            .map_err(|e| WebDriverError::Json(format!("Failed to decode response body: {e:?}")))
     }
 
     /// Deserialize the element from the response.

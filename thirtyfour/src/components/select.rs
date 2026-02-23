@@ -39,7 +39,7 @@ impl Display for Escaped<'_> {
             if i != 0 {
                 f.write_str(", '\"', ")?
             }
-            write!(f, "\"{}\"", substring)?;
+            write!(f, "\"{substring}\"",)?;
         }
         if self.0.ends_with('\"') {
             f.write_str(", '\"'")?;
@@ -55,9 +55,9 @@ pub fn escape_string(value: &str) -> String {
     if contains_single && contains_double {
         format!("concat({})", Escaped(value))
     } else if contains_double {
-        format!("'{}'", value)
+        format!("'{value}'")
     } else {
-        format!("\"{}\"", value)
+        format!("\"{value}\"")
     }
 }
 
@@ -187,7 +187,7 @@ impl SelectElement {
         }
 
         if !matched {
-            Err(no_such_element(format!("Could not locate element with visible text: {}", text)))
+            Err(no_such_element(format!("Could not locate element with visible text: {text}")))
         } else {
             Ok(())
         }
@@ -199,12 +199,11 @@ impl SelectElement {
         condition: &str,
         select: bool,
     ) -> WebDriverResult<()> {
-        let xpath = format!(".//option[{}]", condition);
+        let xpath = format!(".//option[{condition}]");
         let options = self.element.find_all(By::XPath(&*xpath)).await?;
         if options.is_empty() {
             return Err(no_such_element(format!(
-                "Could not locate element matching XPath condition: {:?}",
-                xpath
+                "Could not locate element matching XPath condition: {xpath:?}"
             )));
         }
 

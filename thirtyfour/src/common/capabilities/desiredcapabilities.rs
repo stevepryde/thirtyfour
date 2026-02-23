@@ -38,7 +38,7 @@ pub fn make_w3c_caps(caps: &Value) -> Value {
     let mut always_match = json!({});
 
     if let Some(caps_map) = caps.as_object() {
-        for (k, v) in caps_map.iter() {
+        for (k, v) in caps_map {
             if !v.is_null() {
                 for (k_from, k_to) in OSS_W3C_CONVERSION {
                     if k_from == k {
@@ -109,10 +109,10 @@ impl DesiredCapabilities {
 /// Provides common features for all Capabilities structs.
 pub trait CapabilitiesHelper {
     /// Get an immutable reference to the underlying serde_json::Value.
-    fn _get(&self, key: &str) -> Option<&Value>;
+    fn get(&self, key: &str) -> Option<&Value>;
 
     /// Get a mutable reference to the underlying serde_json::Value.
-    fn _get_mut(&mut self, key: &str) -> Option<&mut Value>;
+    fn get_mut(&mut self, key: &str) -> Option<&mut Value>;
 
     /// Set the specified capability at the root level.
     fn insert_base_capability(&mut self, key: String, value: Value);
@@ -206,17 +206,17 @@ pub trait CapabilitiesHelper {
 
     /// Get whether the session can interact with modal popups such as `window.alert`.
     fn handles_alerts(&self) -> Option<bool> {
-        self._get("handlesAlerts").and_then(|x| x.as_bool())
+        self.get("handlesAlerts").and_then(serde_json::Value::as_bool)
     }
 
     /// Get whether the session supports CSS selectors when searching for elements.
     fn css_selectors_enabled(&self) -> Option<bool> {
-        self._get("cssSelectorsEnabled").and_then(|x| x.as_bool())
+        self.get("cssSelectorsEnabled").and_then(serde_json::Value::as_bool)
     }
 
     /// Get the current page load strategy.
     fn page_load_strategy(&self) -> WebDriverResult<PageLoadStrategy> {
-        let strategy = self._get("pageLoadStrategy").map(|x| from_value(x.clone())).transpose()?;
+        let strategy = self.get("pageLoadStrategy").map(|x| from_value(x.clone())).transpose()?;
         Ok(strategy.unwrap_or_default())
     }
 
@@ -240,7 +240,7 @@ pub trait BrowserCapabilitiesHelper: CapabilitiesHelper {
         key: impl Into<String>,
         value: impl Serialize,
     ) -> WebDriverResult<()> {
-        match self._get_mut(Self::KEY) {
+        match self.get_mut(Self::KEY) {
             Some(Value::Object(v)) => {
                 v.insert(key.into(), to_value(value)?);
             }
@@ -251,7 +251,7 @@ pub trait BrowserCapabilitiesHelper: CapabilitiesHelper {
 
     /// Remove the custom browser-specific property if it exists.
     fn remove_browser_option(&mut self, key: &str) {
-        if let Some(Value::Object(v)) = &mut self._get_mut(Self::KEY) {
+        if let Some(Value::Object(v)) = &mut self.get_mut(Self::KEY) {
             v.remove(key);
         }
     }
@@ -261,7 +261,7 @@ pub trait BrowserCapabilitiesHelper: CapabilitiesHelper {
     where
         T: DeserializeOwned,
     {
-        self._get(Self::KEY)
+        self.get(Self::KEY)
             .and_then(|options| options.get(key))
             .and_then(|option| from_value(option.clone()).ok())
     }
@@ -289,11 +289,11 @@ pub trait BrowserCapabilitiesHelper: CapabilitiesHelper {
 }
 
 impl CapabilitiesHelper for Capabilities {
-    fn _get(&self, key: &str) -> Option<&Value> {
+    fn get(&self, key: &str) -> Option<&Value> {
         self.get(key)
     }
 
-    fn _get_mut(&mut self, key: &str) -> Option<&mut Value> {
+    fn get_mut(&mut self, key: &str) -> Option<&mut Value> {
         self.get_mut(key)
     }
 

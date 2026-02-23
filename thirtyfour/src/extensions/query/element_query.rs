@@ -134,9 +134,10 @@ pub enum ElementQuerySource {
 }
 
 /// Options for wait characteristics for an element query.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum ElementQueryWaitOptions {
     /// Use the default poller.
+    #[default]
     WaitDefault,
     /// Use a poller with the specified timeout and interval.
     Wait {
@@ -147,12 +148,6 @@ pub enum ElementQueryWaitOptions {
     },
     /// Do not wait. This uses a poller that quits immediately.
     NoWait,
-}
-
-impl Default for ElementQueryWaitOptions {
-    fn default() -> Self {
-        Self::WaitDefault
-    }
 }
 
 /// All options applicable to an ElementQuery.
@@ -188,7 +183,7 @@ impl ElementQueryOptions {
 
     /// Set the description to be used in error messages for this element query.
     pub fn set_description<T: Into<Arc<str>>>(mut self, description: Option<T>) -> Self {
-        self.description = description.map(|x| x.into());
+        self.description = description.map(T::into);
         self
     }
 

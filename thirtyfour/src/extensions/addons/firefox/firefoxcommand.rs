@@ -23,17 +23,14 @@ impl FormatRequestData for FirefoxCommand {
             FirefoxCommand::InstallAddon {
                 path,
                 temporary,
-            } => {
-                RequestData::new(Method::POST, format!("/session/{}/moz/addon/install", session_id))
-                    .add_body(json!({
-                        "path": path,
-                        "temporary": temporary
-                    }))
+            } => RequestData::new(Method::POST, format!("/session/{session_id}/moz/addon/install"))
+                .add_body(json!({
+                    "path": path,
+                    "temporary": temporary
+                })),
+            FirefoxCommand::FullScreenshot {} => {
+                RequestData::new(Method::GET, format!("/session/{session_id}/moz/screenshot/full"))
             }
-            FirefoxCommand::FullScreenshot {} => RequestData::new(
-                Method::GET,
-                format!("/session/{}/moz/screenshot/full", session_id),
-            ),
         }
     }
 }

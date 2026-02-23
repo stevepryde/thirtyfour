@@ -29,12 +29,12 @@ impl ChromeCapabilities {
 }
 
 impl CapabilitiesHelper for ChromeCapabilities {
-    fn _get(&self, key: &str) -> Option<&Value> {
-        self.capabilities._get(key)
+    fn get(&self, key: &str) -> Option<&Value> {
+        self.capabilities.get(key)
     }
 
-    fn _get_mut(&mut self, key: &str) -> Option<&mut Value> {
-        self.capabilities._get_mut(key)
+    fn get_mut(&mut self, key: &str) -> Option<&mut Value> {
+        self.capabilities.get_mut(key)
     }
 
     fn insert_base_capability(&mut self, key: String, value: Value) {

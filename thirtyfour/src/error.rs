@@ -56,11 +56,11 @@ impl Display for WebDriverErrorValue {
             .as_ref()
             .map(|x| format!("Stacktrace:\n{}", indent_lines(x, 4)))
             .unwrap_or_default();
-        let error = self.error.as_ref().map(|x| format!("Error: {}", x)).unwrap_or_default();
+        let error = self.error.as_ref().map(|x| format!("Error: {x}")).unwrap_or_default();
         let data = self
             .data
             .as_ref()
-            .map(|x| format!("Data:\n{}", indent_lines(&format!("{:#?}", x), 4)))
+            .map(|x| format!("Data:\n{}", indent_lines(&format!("{x:#?}"), 4)))
             .unwrap_or_default();
         let lines: Vec<String> = vec![self.message.clone(), error, data, stacktrace]
             .into_iter()

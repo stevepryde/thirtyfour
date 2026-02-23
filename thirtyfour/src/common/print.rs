@@ -109,7 +109,7 @@ where
 {
     let val = f64::deserialize(deserializer)?;
     if val < 0.0 {
-        return Err(de::Error::custom(format!("{} is negative", val)));
+        return Err(de::Error::custom(format!("{val} is negative")));
     };
     Ok(val)
 }
@@ -120,7 +120,7 @@ where
 {
     let val = f64::deserialize(deserializer)?;
     if !(0.1..=2.0).contains(&val) {
-        return Err(de::Error::custom(format!("{} is outside range 0.1-2", val)));
+        return Err(de::Error::custom(format!("{val} is outside range 0.1-2")));
     };
     Ok(val)
 }

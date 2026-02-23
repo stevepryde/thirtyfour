@@ -1128,7 +1128,7 @@ impl SessionHandle {
         self: &Arc<SessionHandle>,
         window_name: impl Display,
     ) -> WebDriverResult<()> {
-        let script = format!(r#"window.name = "{}""#, window_name);
+        let script = format!(r#"window.name = "{window_name}""#);
         self.execute(script, Vec::new()).await?;
         Ok(())
     }

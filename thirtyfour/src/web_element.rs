@@ -330,7 +330,7 @@ impl WebElement {
             Value::Bool(b) => Ok(Some(b.to_string())),
             Value::Number(number) => Ok(Some(number.to_string())),
             Value::Null => Ok(None),
-            v => Err(WebDriverError::Json(format!("Unexpected value for property: {:?}", v))),
+            v => Err(WebDriverError::Json(format!("Unexpected value for property: {v:?}"))),
         }
     }
 
@@ -726,7 +726,7 @@ impl WebElement {
     /// # }
     /// ```
     pub async fn inner_html(&self) -> WebDriverResult<String> {
-        self.prop("innerHTML").await.map(|x| x.unwrap_or_default())
+        self.prop("innerHTML").await.map(Option::unwrap_or_default)
     }
 
     /// Get the outerHtml property of this element.
@@ -748,7 +748,7 @@ impl WebElement {
     /// # }
     /// ```
     pub async fn outer_html(&self) -> WebDriverResult<String> {
-        self.prop("outerHTML").await.map(|x| x.unwrap_or_default())
+        self.prop("outerHTML").await.map(Option::unwrap_or_default)
     }
 
     /// Get the shadowRoot property of the current element.
