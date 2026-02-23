@@ -2,194 +2,210 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task.
 
-**Goal:** Update the thirtyfour library from Rust 2021 edition to 2024 edition, removing the `async-trait` dependency and converting dynamic dispatch patterns where appropriate. Also run clippy in pedantic mode, fix all warnings, update documentation, and ensure no panicking code or obscure APIs.
+**Goal:** Update the thirtyfour library from Rust 2021 edition to 2024 edition by:
+1. Removing ALL dynamic dispatch (dyn Trait patterns)
+2. Using native async traits with generics instead
+3. Running clippy in pedantic mode and fixing all warnings
+4. Updating documentation
 
-**Architecture:** 
-- Remove `#[async_trait]` attributes - native Rust async traits work in edition 2024
-- Convert `Box<dyn ElementPoller>` returns to `impl Trait` for cleaner ergonomics  
-- Keep factory patterns (`Arc<dyn HttpClient>`) that need runtime polymorphism as-is
+**Key Finding:** The `async_trait` crate serves two purposes: enabling async methods AND making them dyn-safe. Since Rust 2024 doesn't support native async + dyn together, we must eliminate ALL dynamic dispatch patterns.
 
-**Tech Stack:** Rust 2024 edition (requires Rust 1.85+), no external async-trait crate needed, clippy pedantic mode
-
----
-
-## Task Breakdown
-
-### Task 1: Update thirtyfour/Cargo.toml - change edition and remove async-trait dependency
-
-**Files:**
-- Modify: `thirtyfour/Cargo.toml`
-
-**Context:** This is the main library crate. Need to update from Rust 2021 to 2024 edition and remove the async-trait dependency that was used for async trait support in older Rust editions.
-
-**Changes required:**
-1. Line 5: Change `edition = "2021"` to `edition = "2024"`
-2. Remove line 42: `async-trait = "0.1.83"`
-
-**Step 1: Make the edits**
-- Edit thirtyfour/Cargo.toml with the above changes
-
-**Step 2: Verify compilation still works**
-Run: `cd thirtyfour && cargo check`
-Expected: SUCCESS (may have other errors from edition change - we'll address those in later tasks)
+**Architecture:**
+- Make traits use concrete types via generics with `impl Trait`
+- Update structs to be generic over trait implementations
+- Use associated types or default type parameters for ergonomics
 
 ---
 
-### Task 2: Update thirtyfour-macros/Cargo.toml - change edition to 2024
+## Task Breakdown (Approach B: Remove All Dynamic Dispatch)
+
+### Task 1: Update Cargo.toml files - Rust 2024 edition
 
 **Files:**
-- Modify: `thirtyfour-macros/Cargo.toml`
-
-**Context:** This is the proc-macro crate for thirtyfour. It also needs to be updated to 2024 edition for consistency.
-
-**Changes required:**
-1. Line 5: Change `edition = "2021"` to `edition = "2024"`
-
-**Step 1: Make the edit**
-- Edit thirtyfour-macros/Cargo.toml
-
-**Step 2: Verify compilation works**
-Run: `cd thirtyfour && cargo check`
-Expected: SUCCESS (may have warnings about async_trait not being used)
+- Modify: `thirtyfour/Cargo.toml` (done in previous commit)
+- Verify: `thirtyfour-macros/Cargo.toml` (done in previous commit)
 
 ---
 
-### Task 3: Remove #[async_trait] attributes from session/http.rs
+### Task 2: Refactor HttpClient trait to remove async_trait and dyn
 
-**Files:**
-- Modify: `thirtyfour/src/session/http.rs`
-
-**Context:** The HttpClient trait currently uses the #[async_trait::async_trait] attribute to support async methods in traits. In Rust 2024 edition, this is no longer needed - native async traits work directly.
+**File:** `thirtyfour/src/session/http.rs`
 
 **Changes required:**
-1. Line 39: Remove `#[async_trait::async_trait]` (before `pub trait HttpClient`)
-2. Line 57: Remove `#[async_trait::async_trait]` (before `impl HttpClient for reqwest::Client`)
-3. Line 134: Remove `#[async_trait::async_trait]` (before `impl HttpClient for NullHttpClient`)
+1. Remove `#[async_trait::async_trait]` from trait definition (line 39)
+2. Remove `#[async_trait::async_trait]` from reqwest impl (line 57)
+3. Remove `#[async_trait::async_trait]` from null_client impl (line 134)
+4. Change async fn signatures to use `-> impl Future<Output = ...>` 
+5. The tricky part: handle the factory method that returns `Arc<dyn HttpClient>`
 
-**Step 1: Make the edits**
-- Edit thirtyfour/src/session/http.rs to remove these three attributes
-
-**Step 2: Run cargo check**
-Run: `cd thirtyfour && cargo check`
-Expected: SUCCESS - the async trait methods should work without the macro
-
----
-
-### Task 4: Update poller.rs - remove async_trait and convert Box<dyn> to impl Trait
-
-**Files:**
-- Modify: `thirtyfour/src/extensions/query/poller.rs`
-
-**Context:** The ElementPoller trait uses async_trait, and IntoElementPoller::start() returns a boxed trait object. We need to:
-1. Remove the async_trait attributes (native async works in 2024 edition)
-2. Change Box<dyn ElementPoller> return type to impl Trait
-
-**Changes required:**
-1. Line 9: Remove `#[async_trait::async_trait]` from trait definition
-2. Line 54: Remove `#[async_trait::async_trait]` from impl ElementPollerWithTimeout  
-3. Line 88: Remove `#[async_trait::async_trait]` from impl ElementPollerNoWait
-4. Lines 20, 79, 96: Change `Box<dyn ElementPoller + Send + Sync>` to `impl ElementPoller + Send + Sync`
-
-**Step 1: Make the edits**
-- Edit thirtyfour/src/extensions/query/poller.rs with these changes
-
-**Step 2: Check for any callers that might break**
-Run grep to find places using IntoElementPoller:
+**Step 1: Read session/http.rs to understand full context**
 ```bash
-grep -r "IntoElementPoller" --include="*.rs"
+cat thirtyfour/src/session/http.rs | head -160
 ```
-Check if any code depends on the specific Box<dyn> type.
 
-**Step 3: Run cargo check**
-Run: `cd thirtyfour && cargo check`
-Expected: SUCCESS with all traits working natively
+**Step 2: Make edits to remove async_trait attributes**
 
----
-
-### Task 5: Verify compilation with edition 2024
-
-**Files:**
-- Check: All files in thirtyfour/ and thirtyfour-macros/
-
-**Context:** After making the core changes, verify everything compiles correctly.
-
-**Step 1: Run full cargo check**
-Run: `cargo check --all-targets`
-Expected: SUCCESS - no errors
+**Step 3: Verify with cargo check**
+Run: `cd thirtyfour && cargo check 2>&1 | head -30`
+Expected: If this task alone doesn't compile, proceed to next tasks and fix together
 
 ---
 
-### Task 6: Fix all clippy pedantic warnings
+### Task 3: Refactor SessionHandle to use generic HttpClient
 
-**Files:**
-- All source files in thirtyfour/
-- Remove any #[allow(...)] clippy annotations
-- Fix the underlying issues
+**File:** `thirtyfour/src/session/handle.rs`
 
-**Context:** Run clippy in pedantic mode to find all linting issues. This includes:
-1. Remove any `#[allow(clippy::...)]` or other allow attributes for lints
-2. Fix actual code issues that trigger warnings
-3. Ensure no panicking code (.unwrap(), .expect(), etc.)
-4. No hidden side effects (complex control flow that's hard to follow)
-5. No obscure APIs (use well-known, documented std/lib functions)
+**Changes required:**
+- Line 31: Change `pub client: Arc<dyn HttpClient>` → make struct generic
+- Update constructors at lines 54, 63 to accept concrete types
 
-**Step 1: Run clippy with pedantic mode**
-Run: `cargo clippy -- -W clippy::pedantic -W clippy::nursery`
-Capture all warnings
+**Pattern:**
+```rust
+// Before:
+pub struct SessionHandle {
+    pub client: Arc<dyn HttpClient>,
+}
 
-**Step 2: Find and remove allow attributes**
-Run: `grep -rn "#\[allow" thirtyfour/src/`
-Check each one and either fix the issue or remove the allow if it's no longer needed
-
-**Step 3: Fix issues systematically**
-For each warning category:
-- unwrap/expect → proper error handling
-- complex logic → simplify
-- missing docs → add documentation  
-- unsafe code → review necessity, add safety comments
-- hidden side effects → make explicit
-
-**Step 4: Run clippy again until clean**
-Run: `cargo clippy -- -W clippy::pedantic`
-Expected: No warnings
+// After:
+pub struct SessionHandle<C: HttpClient = reqwest::Client> {
+    pub client: C,
+}
+```
 
 ---
 
-### Task 7: Run tests and ensure all pass
+### Task 4: Refactor session/create.rs for generic HttpClient
 
-**Files:**
-- All test files in thirtyfour/
+**File:** `thirtyfour/src/session/create.rs`
 
-**Context:** Ensure the migration hasn't broken any functionality. All existing tests must continue to pass.
-
-**Step 1: Run full test suite**
-Run: `cargo test --all-targets`
-Expected: All tests PASS (100% success)
-
-**Step 2: If any tests fail**
-- Investigate why they failed
-- Fix the issues (not by disabling tests)
-- Re-run until all pass
+**Changes required:**
+- Line 19: Change parameter from `&dyn HttpClient` to generic `&C`
+- Update function signature to be generic over HttpClient type
 
 ---
 
-### Task 8: Update documentation if needed
+### Task 5: Refactor WebDriver constructor for generic client
 
-**Files:**
-- thirtyfour/README.md
-- Any CHANGELOG or docs/
+**File:** `thirtyfour/src/web_driver.rs`
 
-**Context:** The migration is a breaking change that warrants documenting. Also check if any code comments need updating now that async_trait is removed.
+**Context:** The main entry point needs to work with any HttpClient implementation
+Changes needed around lines 100-130
 
-**Step 1: Check README for edition info**
-Run: `grep -i "edition\|rust" thirtyfour/README.md`
-Update if needed
+**Step 1: Read web_driver.rs to find the new_with_config_and_client function**
 
-**Step 2: Update version/changelog**
-If there's a CHANGELOG, add entry about:
-- Rust 2024 edition requirement
-- Removal of async-trait dependency  
-- Breaking changes for custom poller implementations
+---
+
+### Task 6: Refactor ElementPoller traits (remove async_trait + Box<dyn>)
+
+**File:** `thirtyfour/src/extensions/query/poller.rs`
+
+**Changes required:**
+1. Remove `#[async_trait::async_trait]` from ElementPoller trait (line 9)
+2. Change async fn tick to return impl Future
+3. Remove `#[async_trait::async_trait]` from implementations (lines 54, 88)
+4. For IntoElementPoller::start() - change from Box<dyn> to either:
+   - Return type `impl ElementPoller + Send + Sync`, OR
+   - Use an enum wrapper for different poller types
+
+**Step 1: Read the full file first**
+
+---
+
+### Task 7: Refactor ElementQuery and ElementWaiter to use concrete poller types
+
+**Files:** 
+- `thirtyfour/src/extensions/query/element_query.rs`
+- `thirtyfour/src/extensions/query/element_waiter.rs`
+
+**Changes required:**
+- Change storage from `Arc<dyn IntoElementPoller>` to generic type parameter
+- Update with_poller() methods accordingly
+
+---
+
+### Task 8: Refactor WebDriverConfig for generic poller
+
+**File:** `thirtyfour/src/common/config.rs`
+
+**Changes required:**
+- Lines 20, 72, 101: Make WebDriverConfig generic over poller type
+- Use default type parameter for backward compatibility
+
+```rust
+// Before:
+pub struct WebDriverConfig {
+    pub poller: Arc<dyn IntoElementPoller + Send + Sync>,
+}
+
+// After:
+#[non_exhaustive]
+pub struct WebDriverConfig<P: IntoElementPoller = DefaultPoller> {
+    pub keep_alive: bool,
+    pub poller: P,  // Concrete type instead of Arc<dyn>
+}
+```
+
+---
+
+### Task 9: Verify compilation after all refactoring
+
+**Step 1: Run cargo check**
+```bash
+cd thirtyfour && cargo check 2>&1 | head -50
+```
+
+If errors remain:
+- Fix each error systematically
+- May need to adjust generic bounds or add where clauses
+
+---
+
+### Task 10: Run clippy in pedantic mode and fix all warnings
+
+**Step 1: Run clippy**
+```bash
+cd thirtyfour && cargo clippy -- -W clippy::pedantic -W clippy::nursery 2>&1 | head -100
+```
+
+**Step 2: Find allow attributes**
+```bash
+grep -rn "#\[allow" thirtyfour/src/ | grep -v "TODO\|FIXME"
+```
+
+**Step 3: Fix each warning category:**
+- Remove unnecessary allow directives
+- Fix actual code issues:
+  - unwrap/expect → proper error handling  
+  - missing docs → add documentation
+  - complex logic → simplify
+
+**Step 4: Repeat until clean**
+```bash
+cargo clippy -- -W clippy::pedantic
+```
+
+---
+
+### Task 11: Run full test suite and ensure all pass
+
+**Step 1: Run tests**
+```bash
+cd thirtyfour && cargo test --all-targets 2>&1
+```
+
+**Step 2: Fix any failing tests** (not disable them)
+
+---
+
+### Task 12: Update documentation
+
+**Files to check:**
+- `thirtyfour/README.md`
+- Any CHANGELOG file
+
+**Changes needed:**
+- Note Rust 2024 edition requirement
+- Document breaking changes for custom HttpClient/ElementPoller implementations
 
 ---
 
@@ -197,23 +213,41 @@ If there's a CHANGELOG, add entry about:
 
 After all tasks complete, verify:
 
-1. ✅ `cargo check` succeeds without errors
-2. ✅ `cargo clippy -- -W clippy::pedantic` shows no warnings
+1. ✅ `cargo check --all-targets` succeeds without errors
+2. ✅ `cargo clippy -- -W clippy::pedantic` shows no warnings  
 3. ✅ `cargo test --all-targets` passes 100%
-4. ✅ No `#[allow(...)]` for clippy lints remain
+4. ✅ No `#[allow(...)]` for clippy lints remain (except TODO/FIXME)
 5. ✅ Documentation reflects the changes
+
+---
+
+## Files Requiring Changes (Complete List)
+
+| File | Change Type |
+|------|-------------|
+| thirtyfour/src/session/http.rs | Refactor trait + remove async_trait |
+| thirtyfour/src/session/handle.rs | Make SessionHandle generic |
+| thirtyfour/src/session/create.rs | Make start_session generic |
+| thirtyfour/src/web_driver.rs | Update constructors for generic client |
+| thirtyfour/src/extensions/query/poller.rs | Refactor traits, change return types |
+| thirtyfour/src/extensions/query/element_query.rs | Change storage to concrete types |
+| thirtyfour/src/extensions/query/element_waiter.rs | Change storage to concrete types |
+| thirtyfour/src/common/config.rs | Make config generic with defaults |
+
+---
 
 ## Commit Strategy
 
-Each task should be committed individually with a descriptive message:
-- "chore: update edition to 2024 in thirtyfour"
-- "chore: remove async-trait dependency"  
-- "refactor: use native async traits instead of async_trait crate"
-- "refactor: convert Box<dyn> to impl Trait for poller"
-- "fix(clippy): address pedantic warnings and remove allow directives"
-- "test: verify all tests pass with Rust 2024 edition"
-- "docs: update README for Rust 2024 requirement"
+Commit after each task that compiles successfully:
+- `refactor(http): remove async_trait, make HttpClient trait use native async`
+- `refactor(handle): make SessionHandle generic over HttpClient`
+- `refactor(poller): convert Box<dyn> to impl Trait pattern`  
+- `refactor(config): make WebDriverConfig generic with default type`
+- `fix(clippy): address pedantic warnings and remove allow directives`
+- `test: verify all tests pass with Rust 2024 edition`
 
 ---
 
 **Ready for subagent-driven execution using superpowers:subagent-driven-development**
+
+Each task should be executed as a separate subagent dispatch, with verification (cargo check) after each one. If compilation fails at any step, launch new subagents to fix the specific issues.
