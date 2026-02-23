@@ -33,7 +33,8 @@ const OSS_W3C_CONVERSION: &[(&str, &str)] = &[
     ("platform", "platformName"),
 ];
 
-/// Convert the given serde_json::Value into a W3C-compatible Capabilities struct.
+/// Convert the given `serde_json::Value` into a W3C-compatible Capabilities struct.
+#[must_use] 
 pub fn make_w3c_caps(caps: &Value) -> Value {
     let mut always_match = json!({});
 
@@ -70,37 +71,44 @@ pub fn make_w3c_caps(caps: &Value) -> Value {
 pub struct DesiredCapabilities;
 
 impl DesiredCapabilities {
-    /// Create a ChromeCapabilities struct.
+    /// Create a `ChromeCapabilities` struct.
+    #[must_use] 
     pub fn chrome() -> ChromeCapabilities {
         ChromeCapabilities::new()
     }
 
-    /// Create a ChromiumCapabilities struct.
+    /// Create a `ChromiumCapabilities` struct.
+    #[must_use] 
     pub fn chromium() -> ChromiumCapabilities {
         ChromiumCapabilities::new()
     }
 
-    /// Create an EdgeCapabilities struct.
+    /// Create an `EdgeCapabilities` struct.
+    #[must_use] 
     pub fn edge() -> EdgeCapabilities {
         EdgeCapabilities::new()
     }
 
-    /// Create a FirefoxCapabilities struct.
+    /// Create a `FirefoxCapabilities` struct.
+    #[must_use] 
     pub fn firefox() -> FirefoxCapabilities {
         FirefoxCapabilities::new()
     }
 
-    /// Create an InternetExplorerCapabilities struct.
+    /// Create an `InternetExplorerCapabilities` struct.
+    #[must_use] 
     pub fn internet_explorer() -> InternetExplorerCapabilities {
         InternetExplorerCapabilities::new()
     }
 
-    /// Create an OperaCapabilities struct.
+    /// Create an `OperaCapabilities` struct.
+    #[must_use] 
     pub fn opera() -> OperaCapabilities {
         OperaCapabilities::new()
     }
 
-    /// Create a SafariCapabilities struct.
+    /// Create a `SafariCapabilities` struct.
+    #[must_use] 
     pub fn safari() -> SafariCapabilities {
         SafariCapabilities::new()
     }
@@ -108,10 +116,10 @@ impl DesiredCapabilities {
 
 /// Provides common features for all Capabilities structs.
 pub trait CapabilitiesHelper {
-    /// Get an immutable reference to the underlying serde_json::Value.
+    /// Get an immutable reference to the underlying `serde_json::Value`.
     fn get(&self, key: &str) -> Option<&Value>;
 
-    /// Get a mutable reference to the underlying serde_json::Value.
+    /// Get a mutable reference to the underlying `serde_json::Value`.
     fn get_mut(&mut self, key: &str) -> Option<&mut Value>;
 
     /// Set the specified capability at the root level.
@@ -378,7 +386,7 @@ pub enum PageLoadStrategy {
     /// Wait for full page loading (the default).
     #[default]
     Normal,
-    /// Wait for the DOMContentLoaded event (html content downloaded and parsed only).
+    /// Wait for the `DOMContentLoaded` event (html content downloaded and parsed only).
     Eager,
     /// Return immediately after the initial page content is fully received
     /// (html content downloaded).

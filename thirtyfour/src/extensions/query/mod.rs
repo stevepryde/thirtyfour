@@ -4,7 +4,7 @@
 //!
 //! ## Usage
 //!
-//! ### ElementQuery
+//! ### `ElementQuery`
 //!
 //! The `WebDriver::query()` and `WebElement::query()` methods work out-of-the-box with no
 //! additional setup required.
@@ -71,7 +71,7 @@
 //! Note the use of `StringMatch` to provide a partial (whole-word) match on the class name.
 //! See the documentation for [StringMatch](https://crates.io/crates/stringmatch) for more info.
 //!
-//! **NOTE:** Each filter will trigger an additional request to the WebDriver server for every poll
+//! **NOTE:** Each filter will trigger an additional request to the `WebDriver` server for every poll
 //! iteration.
 //! It is therefore strongly recommended to use `By::*` selectors to perform filtering,
 //! if possible.
@@ -89,13 +89,13 @@
 //! If you want to fetch all elements matched by all branches,
 //! it's probably best to execute multiple queries.
 //!
-//! All timeout, interval and ElementPoller details can be overridden on a per-call basis if
+//! All timeout, interval and `ElementPoller` details can be overridden on a per-call basis if
 //! desired.
 //! See the [`ElementQuery`] documentation for more details.
 //!
 //! [`ElementQuery`]: ElementQuery
 //!
-//! ### ElementWaiter
+//! ### `ElementWaiter`
 //!
 //! With `ElementWaiter` you can do things like this:
 //! ```ignore
@@ -132,7 +132,7 @@
 //!
 //! These predicates (or your own) can also be supplied as filters to `ElementQuery`.
 //!
-//! ### ElementPoller
+//! ### `ElementPoller`
 //!
 //! The polling strategy can be customized by implementing both [`ElementPoller`]
 //! and [`IntoElementPoller`].

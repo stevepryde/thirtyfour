@@ -15,7 +15,7 @@ pub struct SwitchTo {
 }
 
 impl SwitchTo {
-    /// Create a new SwitchTo struct. This is typically created internally
+    /// Create a new `SwitchTo` struct. This is typically created internally
     /// via a call to `WebDriver::switch_to()`.
     pub fn new(handle: Arc<SessionHandle>) -> Self {
         Self {
@@ -37,6 +37,7 @@ impl SwitchTo {
         since = "0.30.0",
         note = "This method has been deprecated. See the `Alert` module for new method names"
     )]
+    #[must_use] 
     pub fn alert(self) -> Alert {
         Alert::new(self.handle)
     }
@@ -106,7 +107,7 @@ impl SwitchTo {
         let handles = self.handle.windows().await?;
         for handle in handles {
             self.handle.switch_to_window(handle).await?;
-            let ret = self.handle.execute(r#"return window.name;"#, Vec::new()).await?;
+            let ret = self.handle.execute(r"return window.name;", Vec::new()).await?;
             let current_name: String = ret.convert()?;
             if current_name == name {
                 return Ok(());
@@ -306,7 +307,7 @@ impl SessionHandle {
         let handles = self.windows().await?;
         for handle in handles {
             self.switch_to_window(handle).await?;
-            let ret = self.execute(r#"return window.name;"#, Vec::new()).await?;
+            let ret = self.execute(r"return window.name;", Vec::new()).await?;
             let current_name: String = ret.convert()?;
             if current_name == name {
                 return Ok(());

@@ -45,6 +45,7 @@ macro_rules! firefox_arg_wrapper {
 
 impl FirefoxCapabilities {
     /// Create a new `FirefoxCapabilities`.
+    #[must_use] 
     pub fn new() -> Self {
         let mut capabilities = Capabilities::new();
         capabilities.insert("browserName".to_string(), json!("firefox"));
@@ -91,6 +92,7 @@ impl FirefoxCapabilities {
     }
 
     /// Get the firefox profile zip as a base64-encoded string.
+    #[must_use] 
     pub fn encoded_profile(&self) -> Option<String> {
         self.browser_option("profile")
     }
@@ -141,7 +143,7 @@ impl BrowserCapabilitiesHelper for FirefoxCapabilities {
     const KEY: &'static str = "moz:firefoxOptions";
 }
 
-/// LogLevel used by `geckodriver`.
+/// `LogLevel` used by `geckodriver`.
 #[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LogLevel {
@@ -197,6 +199,7 @@ pub struct FirefoxPreferences {
 
 impl FirefoxPreferences {
     /// Create a new `FirefoxPreferences` instance.
+    #[must_use] 
     pub fn new() -> Self {
         FirefoxPreferences::default()
     }

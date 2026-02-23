@@ -45,7 +45,7 @@ pub trait HttpClient: Clone + Send + Sync + 'static {
         request: Request<Body<'a>>,
     ) -> Pin<Box<dyn Future<Output = WebDriverResult<Response<Bytes>>> + Send + 'a>>;
 
-    /// Make a new HttpClient, that **has no connection to the previous I/O drivers of self's runtime**
+    /// Make a new `HttpClient`, that **has no connection to the previous I/O drivers of self's runtime**
     /// this is used when dropping the webdriver but the old runtime has already shut down
     /// or couldn't prove its availability
     /// this isn't a simple clone,
@@ -229,7 +229,7 @@ pub(crate) async fn run_webdriver_cmd(
     }
 }
 
-/// Struct representing a WebDriver command response.
+/// Struct representing a `WebDriver` command response.
 #[derive(Debug, Clone)]
 pub struct CmdResponse {
     /// The body of the response.

@@ -51,7 +51,7 @@ impl Selector {
 pub enum BySelector {
     /// Select an element by id.
     Id(Arc<str>),
-    /// Select an element by XPath.
+    /// Select an element by `XPath`.
     XPath(Arc<str>),
     /// Select an element by link text.
     LinkText(Arc<str>),
@@ -105,7 +105,7 @@ impl By {
         }
     }
 
-    /// Select element by XPath.
+    /// Select element by `XPath`.
     pub fn XPath(x: impl IntoArcStr) -> Self {
         Self {
             selector: BySelector::XPath(x.into()),
@@ -201,7 +201,7 @@ pub trait ExtensionCommand: Debug {
     fn endpoint(&self) -> Arc<str>;
 }
 
-/// All the standard WebDriver commands.
+/// All the standard `WebDriver` commands.
 #[allow(missing_docs)]
 #[derive(Debug)]
 pub enum Command {
@@ -268,7 +268,7 @@ pub enum Command {
     ExtensionCommand(Box<dyn ExtensionCommand + Send + Sync>),
 }
 
-/// Trait for formatting a WebDriver command into a `RequestData` struct.
+/// Trait for formatting a `WebDriver` command into a `RequestData` struct.
 pub trait FormatRequestData: Debug {
     /// Format the command into a `RequestData` struct.
     fn format_request(&self, session_id: &SessionId) -> RequestData;

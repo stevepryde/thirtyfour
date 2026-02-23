@@ -13,7 +13,7 @@ pub enum ChromeCommand {
     GetNetworkConditions,
     /// Set the specified network conditions to simulate.
     SetNetworkConditions(NetworkConditions),
-    /// Execute the specified Chrome DevTools Protocol command.
+    /// Execute the specified Chrome `DevTools` Protocol command.
     ExecuteCdpCommand(String, Value),
     /// Get the current sinks.
     GetSinks,

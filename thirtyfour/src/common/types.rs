@@ -109,18 +109,20 @@ pub struct ElementRect {
 
 impl ElementRect {
     /// The coordinates of the rectangle center point, rounded to integers.
+    #[must_use] 
     pub fn icenter(&self) -> (i64, i64) {
         let (x, y) = self.center();
         (x as i64, y as i64)
     }
 
     /// The coordinates of the rectangle center point.
+    #[must_use] 
     pub fn center(&self) -> (f64, f64) {
         (self.x + (self.width / 2.0), self.y + (self.height / 2.0))
     }
 }
 
-/// Helper to Serialize/Deserialize ElementRef from JSON Value.
+/// Helper to Serialize/Deserialize `ElementRef` from JSON Value.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ElementRef {
@@ -140,6 +142,7 @@ pub enum ElementRef {
 
 impl ElementRef {
     /// The element id, as returned by the webdriver.
+    #[must_use] 
     pub fn id(&self) -> &str {
         match self {
             ElementRef::Element {
@@ -176,9 +179,10 @@ impl fmt::Display for SessionId {
 }
 
 impl SessionId {
-    /// Create a placeholder SessionId for cases where it's not used.
+    /// Create a placeholder `SessionId` for cases where it's not used.
     ///
     /// E.g., session creation.
+    #[must_use] 
     pub fn null() -> Self {
         SessionId {
             id: Arc::from(""),
@@ -270,6 +274,7 @@ pub struct Rect {
 
 impl Rect {
     /// Create a new `Rect`.
+    #[must_use] 
     pub fn new(x: i64, y: i64, width: i64, height: i64) -> Self {
         Rect {
             x,
@@ -282,7 +287,7 @@ impl Rect {
 
 /// Generic element query function that returns some type T.
 pub trait ElementQueryFn<T>: Send + Sync {
-    /// the future returned by ElementQueryFn::query
+    /// the future returned by `ElementQueryFn::query`
     type Fut: Future<Output = WebDriverResult<T>> + Send;
 
     /// the implementation of the query function
@@ -319,12 +324,12 @@ impl<T: 'static> DynElementQueryFn<T> {
         move |arg: WebElement| fun.call(arg).boxed()
     }
 
-    /// erases the type of ElementQueryFn, and dynamically dispatches it using a Box smart pointer
+    /// erases the type of `ElementQueryFn`, and dynamically dispatches it using a Box smart pointer
     pub fn boxed<F: ElementQueryFn<T, Fut: 'static> + 'static>(fun: F) -> Box<Self> {
         Box::new(Self::wrap(fun)) as Box<Self>
     }
 
-    /// erases the type of ElementQueryFn, and dynamically dispatches it using an Arc smart pointer
+    /// erases the type of `ElementQueryFn`, and dynamically dispatches it using an Arc smart pointer
     pub fn arc<F: ElementQueryFn<T, Fut: 'static> + 'static>(fun: F) -> Arc<Self> {
         Arc::new(Self::wrap(fun)) as Arc<Self>
     }
@@ -345,35 +350,41 @@ pub struct OptionRect {
 
 impl OptionRect {
     /// Create a new `OptionRect`.
+    #[must_use] 
     pub fn new() -> Self {
         Default::default()
     }
 
     /// Set the x coordinate of the top-left corner.
+    #[must_use] 
     pub fn with_x(mut self, value: i64) -> Self {
         self.x = Some(value);
         self
     }
 
     /// Set the y coordinate of the top-left corner.
+    #[must_use] 
     pub fn with_y(mut self, value: i64) -> Self {
         self.y = Some(value);
         self
     }
 
     /// Set the rectangle width.
+    #[must_use] 
     pub fn with_width(mut self, value: i64) -> Self {
         self.width = Some(value);
         self
     }
 
     /// Set the rectangle height.
+    #[must_use] 
     pub fn with_height(mut self, value: i64) -> Self {
         self.height = Some(value);
         self
     }
 
     /// Set the rectangle position.
+    #[must_use] 
     pub fn with_pos(mut self, x: i64, y: i64) -> Self {
         self.x = Some(x);
         self.y = Some(y);
@@ -381,6 +392,7 @@ impl OptionRect {
     }
 
     /// Set the rectangle size.
+    #[must_use] 
     pub fn with_size(mut self, width: i64, height: i64) -> Self {
         self.width = Some(width);
         self.height = Some(height);
@@ -426,6 +438,7 @@ impl Default for TimeoutConfiguration {
 
 impl TimeoutConfiguration {
     /// Create a new `TimeoutConfiguration`.
+    #[must_use] 
     pub fn new(
         script: Option<Duration>,
         page_load: Option<Duration>,
@@ -469,7 +482,7 @@ impl TimeoutConfiguration {
     }
 }
 
-/// The WebDriver status.
+/// The `WebDriver` status.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebDriverStatus {
     /// Whether the webdriver is ready to accept new sessions.

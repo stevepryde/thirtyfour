@@ -89,9 +89,9 @@ where
     F: Future + Send + 'static,
 {
     if size_of::<F>() > BOX_FUTURE_THRESHOLD {
-        spawn_blocked_future_inner(Box::new(future))
+        spawn_blocked_future_inner(Box::new(future));
     } else {
-        spawn_blocked_future_inner(future)
+        spawn_blocked_future_inner(future);
     }
 }
 
@@ -138,7 +138,7 @@ where
                 maybe_handle => spawn_off!(future(true), maybe_handle),
             }
         } else {
-            spawn_off!(future(true))
+            spawn_off!(future(true));
         }
     }
 }
@@ -157,10 +157,11 @@ pub(crate) async fn write_file(
 
 /// Helper to sleep asynchronously for the specified duration.
 pub async fn sleep(duration: Duration) {
-    tokio::time::sleep(duration).await
+    tokio::time::sleep(duration).await;
 }
 
 /// Convenience wrapper for base64 encoding.
+#[must_use] 
 pub fn base64_encode(data: &[u8]) -> String {
     BASE64_STANDARD.encode(data)
 }

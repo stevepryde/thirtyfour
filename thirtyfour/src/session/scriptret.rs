@@ -18,7 +18,7 @@ pub struct ScriptRet {
 }
 
 impl ScriptRet {
-    /// Create a new ScriptRet.
+    /// Create a new `ScriptRet`.
     ///
     /// This is typically done automatically via [`WebDriver::execute`]
     /// or [`WebDriver::execute_async`].
@@ -33,12 +33,14 @@ impl ScriptRet {
     }
 
     /// Get the raw JSON value.
+    #[must_use] 
     pub fn json(&self) -> &Value {
         &self.value
     }
 
     /// Get the raw JSON value.
     #[deprecated(since = "0.30.0", note = "This method has been renamed to json()")]
+    #[must_use] 
     pub fn value(&self) -> &Value {
         self.json()
     }
@@ -52,20 +54,20 @@ impl ScriptRet {
         Ok(v)
     }
 
-    /// Get a single WebElement return value.
+    /// Get a single `WebElement` return value.
     ///
     /// Your script must return only a single element for this to work.
     pub fn element(self) -> WebDriverResult<WebElement> {
         WebElement::from_json(self.value, self.handle)
     }
 
-    /// Get a single WebElement return value.
+    /// Get a single `WebElement` return value.
     #[deprecated(since = "0.30.0", note = "This method has been renamed to element()")]
     pub fn get_element(self) -> WebDriverResult<WebElement> {
         self.element()
     }
 
-    /// Get a vec of WebElements from the return value.
+    /// Get a vec of `WebElements` from the return value.
     ///
     /// Your script must return an array of elements for this to work.
     pub fn elements(self) -> WebDriverResult<Vec<WebElement>> {
@@ -74,7 +76,7 @@ impl ScriptRet {
         values.into_iter().map(|x| WebElement::from_json(x, handle.clone())).collect()
     }
 
-    /// Get a vec of WebElements from the return value.
+    /// Get a vec of `WebElements` from the return value.
     #[deprecated(since = "0.30.0", note = "This method has been renamed to elements()")]
     pub fn get_elements(self) -> WebDriverResult<Vec<WebElement>> {
         self.elements()

@@ -18,6 +18,7 @@ impl Default for SafariCapabilities {
 
 impl SafariCapabilities {
     /// Create a new `SafariCapabilities`.
+    #[must_use] 
     pub fn new() -> Self {
         let mut capabilities = Capabilities::new();
         capabilities.insert("browserName".to_string(), json!("safari"));

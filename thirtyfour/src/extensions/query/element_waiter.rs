@@ -42,6 +42,7 @@ impl ElementWaiter {
     /// Create a new `ElementWaiter`.
     ///
     /// See `Element::wait_until()` rather than creating this directly.
+    #[must_use] 
     pub fn new(element: WebElement, poller: AnyElementPoller) -> Self {
         Self {
             element,
@@ -51,14 +52,15 @@ impl ElementWaiter {
         }
     }
 
-    /// Use the specified ElementPoller for this ElementWaiter.
-    /// This will not affect the default ElementPoller used for other waits.
+    /// Use the specified `ElementPoller` for this `ElementWaiter`.
+    /// This will not affect the default `ElementPoller` used for other waits.
     pub fn with_poller(mut self, poller: impl IntoElementPoller) -> Self {
         self.poller = poller.start();
         self
     }
 
     /// Provide a human-readable error message to be returned in the case of timeout.
+    #[must_use] 
     pub fn error(mut self, message: &str) -> Self {
         self.message = message.to_string();
         self
@@ -67,14 +69,16 @@ impl ElementWaiter {
     /// By default, a waiter will ignore any errors that occur while polling for the desired
     /// condition(s). However, this behaviour can be modified so that the waiter will return
     /// early if an error is returned from thirtyfour.
+    #[must_use] 
     pub fn ignore_errors(mut self, ignore: bool) -> Self {
         self.ignore_errors = ignore;
         self
     }
 
-    /// Force this ElementWaiter to wait for the specified timeout, polling once
+    /// Force this `ElementWaiter` to wait for the specified timeout, polling once
     /// after each interval. This will override the poller for this
-    /// ElementWaiter only.
+    /// `ElementWaiter` only.
+    #[must_use] 
     pub fn wait(self, timeout: Duration, interval: Duration) -> Self {
         self.with_poller(ElementPollerWithTimeout::new(timeout, interval))
     }
@@ -432,14 +436,14 @@ impl ElementWaiter {
     }
 }
 
-/// Trait for enabling the ElementWaiter interface.
+/// Trait for enabling the `ElementWaiter` interface.
 pub trait ElementWaitable {
     /// Wait until the element meets one or more conditions.
     fn wait_until(&self) -> ElementWaiter;
 }
 
 impl ElementWaitable for WebElement {
-    /// Return an ElementWaiter instance for more executing powerful explicit waits.
+    /// Return an `ElementWaiter` instance for more executing powerful explicit waits.
     ///
     /// This uses the builder pattern to construct explicit waits using one of the
     /// provided predicates. Or you can provide your own custom predicate if desired.

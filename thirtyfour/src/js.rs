@@ -1,4 +1,4 @@
-//! A place to store reusable JavaScript to pass to execute and execute_async.
+//! A place to store reusable JavaScript to pass to execute and `execute_async`.
 
 /// A javascript function for simulating drag and drop.
 pub const SIMULATE_DRAG_AND_DROP: &str = r#"

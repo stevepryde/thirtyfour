@@ -200,7 +200,8 @@ impl Default for ChromiumCapabilities {
 }
 
 impl ChromiumCapabilities {
-    /// Create a new ChromeCapabilities struct.
+    /// Create a new `ChromeCapabilities` struct.
+    #[must_use] 
     pub fn new() -> Self {
         let mut capabilities = Capabilities::new();
         capabilities.insert("browserName".to_string(), json!("chromium"));

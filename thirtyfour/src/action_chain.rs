@@ -11,11 +11,11 @@ use crate::{
 use std::sync::Arc;
 use std::time::Duration;
 
-/// The ActionChain struct allows you to perform multiple input actions in
+/// The `ActionChain` struct allows you to perform multiple input actions in
 /// a sequence, including drag-and-drop, send keystrokes to an element, and
 /// hover the mouse over an element.
 ///
-/// The easiest way to construct an ActionChain struct is via the WebDriver
+/// The easiest way to construct an `ActionChain` struct is via the `WebDriver`
 /// struct.
 ///
 /// # Example:
@@ -30,9 +30,9 @@ pub struct ActionChain {
 }
 
 impl ActionChain {
-    /// Create a new ActionChain struct.
+    /// Create a new `ActionChain` struct.
     ///
-    /// See [WebDriver::action_chain()](../struct.WebDriver.html#method.action_chain)
+    /// See [`WebDriver::action_chain()`](../struct.WebDriver.html#method.action_chain)
     /// for more details.
     pub fn new(handle: Arc<SessionHandle>) -> Self {
         ActionChain {
@@ -46,13 +46,13 @@ impl ActionChain {
         }
     }
 
-    /// Create a new ActionChain struct with custom action delays.
+    /// Create a new `ActionChain` struct with custom action delays.
     ///
     /// The [`Duration`] is the time before an action is executed in the chain.
     ///
     /// `key_delay` defaults to 0ms, `pointer_delay` defaults to 250ms
     ///
-    /// See [WebDriver::action_chain()](../struct.WebDriver.html#method.action_chain)
+    /// See [`WebDriver::action_chain()`](../struct.WebDriver.html#method.action_chain)
     /// for more details.
     pub fn new_with_delay(
         handle: Arc<SessionHandle>,
@@ -96,6 +96,9 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
+    ///
+    /// # Errors
+    /// Returns an error if the WebDriver command fails.
     pub async fn reset_actions(&self) -> WebDriverResult<()> {
         self.handle.cmd(Command::ReleaseActions).await?;
         Ok(())
@@ -103,6 +106,9 @@ impl ActionChain {
 
     /// Perform the action sequence. No actions are actually performed until
     /// this method is called.
+    ///
+    /// # Errors
+    /// Returns an error if the WebDriver command fails.
     pub async fn perform(&self) -> WebDriverResult<()> {
         let actions = Actions::from(serde_json::json!([self.key_actions, self.pointer_actions]));
         self.handle.cmd(Command::PerformActions(actions)).await?;
@@ -130,6 +136,7 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
+    #[must_use]
     pub fn click(mut self) -> Self {
         self.pointer_actions.click();
         // Click = 2 actions (PointerDown + PointerUp).
@@ -159,6 +166,7 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
+    #[must_use]
     pub fn click_element(self, element: &WebElement) -> Self {
         self.move_to_element_center(element).click()
     }
@@ -187,6 +195,7 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
+    #[must_use]
     pub fn click_and_hold(mut self) -> Self {
         self.pointer_actions.click_and_hold();
         self.key_actions.pause();
@@ -218,6 +227,7 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
+    #[must_use]
     pub fn click_and_hold_element(self, element: &WebElement) -> Self {
         self.move_to_element_center(element).click_and_hold()
     }
@@ -243,6 +253,7 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
+    #[must_use]
     pub fn context_click(mut self) -> Self {
         self.pointer_actions.context_click();
         // Click = 2 actions (PointerDown + PointerUp).
@@ -272,6 +283,7 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
+    #[must_use]
     pub fn context_click_element(self, element: &WebElement) -> Self {
         self.move_to_element_center(element).context_click()
     }
@@ -297,6 +309,7 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
+    #[must_use]
     pub fn double_click(mut self) -> Self {
         self.pointer_actions.double_click();
         // Each click = 2 actions (PointerDown + PointerUp).
@@ -327,23 +340,27 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
+    #[must_use]
     pub fn double_click_element(self, element: &WebElement) -> Self {
         self.move_to_element_center(element).double_click()
     }
 
     /// Drag the mouse cursor from the center of the source element to the
     /// center of the target element.
+    #[must_use]
     pub fn drag_and_drop_element(self, source: &WebElement, target: &WebElement) -> Self {
         self.click_and_hold_element(source).release_on_element(target)
     }
 
     /// Drag the mouse cursor by the specified X and Y offsets.
+    #[must_use]
     pub fn drag_and_drop_by_offset(self, x_offset: i64, y_offset: i64) -> Self {
         self.click_and_hold().move_by_offset(x_offset, y_offset)
     }
 
     /// Drag the mouse cursor by the specified X and Y offsets, starting
     /// from the center of the specified element.
+    #[must_use]
     pub fn drag_and_drop_element_by_offset(
         self,
         element: &WebElement,
@@ -510,6 +527,7 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
+    #[must_use]
     pub fn move_to(mut self, x: i64, y: i64) -> Self {
         self.pointer_actions.move_to(x, y);
         self.key_actions.pause();
@@ -545,6 +563,7 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
+    #[must_use]
     pub fn move_by_offset(mut self, x_offset: i64, y_offset: i64) -> Self {
         self.pointer_actions.move_by(x_offset, y_offset);
         self.key_actions.pause();
@@ -575,6 +594,7 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
+    #[must_use]
     pub fn move_to_element_center(mut self, element: &WebElement) -> Self {
         self.pointer_actions.move_to_element_center(element.element_id.clone());
         self.key_actions.pause();
@@ -617,6 +637,7 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
+    #[must_use]
     pub fn move_to_element_with_offset(
         mut self,
         element: &WebElement,
@@ -651,6 +672,7 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
+    #[must_use]
     pub fn release(mut self) -> Self {
         self.pointer_actions.release();
         self.key_actions.pause();
@@ -680,6 +702,7 @@ impl ActionChain {
     /// #     })
     /// # }
     /// ```
+    #[must_use]
     pub fn release_on_element(self, element: &WebElement) -> Self {
         self.move_to_element_center(element).release()
     }

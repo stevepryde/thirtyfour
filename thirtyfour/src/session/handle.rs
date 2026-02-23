@@ -24,8 +24,8 @@ use crate::{TimeoutConfiguration, WindowHandle};
 
 use super::http::{run_webdriver_cmd, CmdResponse, HttpClient};
 
-/// The SessionHandle contains a shared reference to the HTTP client
-/// to allow sending commands to the underlying WebDriver.
+/// The `SessionHandle` contains a shared reference to the HTTP client
+/// to allow sending commands to the underlying `WebDriver`.
 pub struct SessionHandle {
     /// The HTTP client for performing webdriver requests.
     pub client: Arc<reqwest::Client>,
@@ -49,7 +49,7 @@ impl Debug for SessionHandle {
 }
 
 impl SessionHandle {
-    /// Create new SessionHandle.
+    /// Create new `SessionHandle`.
     pub fn new(
         client: Arc<reqwest::Client>,
         server_url: impl IntoUrl,
@@ -109,7 +109,7 @@ impl SessionHandle {
         run_webdriver_cmd(&*self.client, &request_data, &self.server_url, &self.config).await
     }
 
-    /// Get the WebDriver status.
+    /// Get the `WebDriver` status.
     ///
     /// # Example
     /// ```no_run
@@ -202,7 +202,7 @@ impl SessionHandle {
         Ok(())
     }
 
-    /// Navigate to the specified URL. Alias of goto().
+    /// Navigate to the specified URL. Alias of `goto()`.
     pub async fn get(&self, url: impl IntoArcStr) -> WebDriverResult<()> {
         self.goto(url).await
     }
@@ -646,8 +646,8 @@ impl SessionHandle {
         let rect = OptionRect {
             x: Some(x),
             y: Some(y),
-            width: Some(width as i64),
-            height: Some(height as i64),
+            width: Some(i64::from(width)),
+            height: Some(i64::from(height)),
         };
         self.cmd(Command::SetWindowRect(rect)).await?;
         Ok(())
@@ -785,7 +785,7 @@ impl SessionHandle {
 
     /// Set the implicit wait timeout.
     ///
-    /// This is how long the WebDriver will wait when querying elements.
+    /// This is how long the `WebDriver` will wait when querying elements.
     /// By default, this is set to 0 seconds.
     ///
     /// **NOTE:** Setting the implicit wait timeout to a non-zero value will interfere with the use
@@ -821,7 +821,7 @@ impl SessionHandle {
 
     /// Set the script timeout.
     ///
-    /// This is how long the WebDriver will wait for a Javascript script to execute.
+    /// This is how long the `WebDriver` will wait for a Javascript script to execute.
     /// By default, this is set to 60 seconds.
     ///
     /// # Example:
@@ -849,7 +849,7 @@ impl SessionHandle {
 
     /// Set the page load timeout.
     ///
-    /// This is how long the WebDriver will wait for the page to finish loading.
+    /// This is how long the `WebDriver` will wait for the page to finish loading.
     /// By default, this is set to 60 seconds.
     ///
     /// # Example:
@@ -1078,7 +1078,7 @@ impl SessionHandle {
         Ok(())
     }
 
-    /// Return a SwitchTo struct for switching to another window or frame.
+    /// Return a `SwitchTo` struct for switching to another window or frame.
     #[deprecated(
         since = "0.30.0",
         note = "SwitchTo has been deprecated. Use WebDriver::switch_to_*() methods instead"
@@ -1225,7 +1225,7 @@ impl Drop for SessionHandle {
                     static ALWAYS_INIT: LazyLock<Arc<OnceCell<()>>> =
                         LazyLock::new(|| Arc::new(OnceCell::new_with(Some(()))));
                     self.0.quit = Arc::clone(&ALWAYS_INIT);
-                    debug_assert!(self.0.quit.initialized())
+                    debug_assert!(self.0.quit.initialized());
                 }
             }
         }

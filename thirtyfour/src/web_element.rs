@@ -13,10 +13,10 @@ use crate::{common::types::ElementRect, error::WebDriverResult, By, ElementRef};
 use crate::{support, IntoArcStr};
 use crate::{ElementId, TypingData};
 
-/// The WebElement struct encapsulates a single element on a page.
+/// The `WebElement` struct encapsulates a single element on a page.
 ///
-/// WebElement structs are generally not constructed manually, but rather
-/// they are returned from a 'find_element()' operation using a WebDriver.
+/// `WebElement` structs are generally not constructed manually, but rather
+/// they are returned from a '`find_element()`' operation using a `WebDriver`.
 ///
 /// # Example:
 /// ```no_run
@@ -77,11 +77,11 @@ impl PartialEq for WebElement {
 impl Eq for WebElement {}
 
 impl WebElement {
-    /// Create a new WebElement struct.
+    /// Create a new `WebElement` struct.
     ///
-    /// Typically you would not call this directly. WebElement structs are
-    /// usually constructed by calling one of the find_element*() methods
-    /// either on WebDriver or another WebElement.
+    /// Typically you would not call this directly. `WebElement` structs are
+    /// usually constructed by calling one of the `find_element`*() methods
+    /// either on `WebDriver` or another `WebElement`.
     pub(crate) fn new(element_id: ElementId, handle: Arc<SessionHandle>) -> Self {
         Self {
             element_id,
@@ -93,7 +93,7 @@ impl WebElement {
     ///
     /// The `value` argument should be a JSON object containing the property
     /// `element-6066-11e4-a52e-4f735466cecf` whose value is the element id
-    /// assigned by the WebDriver.
+    /// assigned by the `WebDriver`.
     ///
     /// You can get the session handle from any existing `WebDriver` or
     /// `WebElement` that is using this session, e.g. `driver.handle`.
@@ -125,11 +125,12 @@ impl WebElement {
     ///
     /// NOTE: If you want the `id` property of an element,
     ///       use [`WebElement::id`] instead.
+    #[must_use] 
     pub fn element_id(&self) -> ElementId {
         self.element_id.clone()
     }
 
-    /// Get the bounding rectangle for this WebElement.
+    /// Get the bounding rectangle for this `WebElement`.
     ///
     /// # Example:
     /// ```no_run
@@ -158,7 +159,7 @@ impl WebElement {
         self.rect().await
     }
 
-    /// Get the tag name for this WebElement.
+    /// Get the tag name for this `WebElement`.
     ///
     /// # Example:
     /// ```no_run
@@ -180,7 +181,7 @@ impl WebElement {
         self.handle.cmd(Command::GetElementTagName(self.element_id.clone())).await?.value()
     }
 
-    /// Get the class name for this WebElement.
+    /// Get the class name for this `WebElement`.
     ///
     /// # Example:
     /// ```no_run
@@ -202,7 +203,7 @@ impl WebElement {
         self.attr("class").await
     }
 
-    /// Get the id for this WebElement.
+    /// Get the id for this `WebElement`.
     ///
     /// # Example:
     /// ```no_run
@@ -224,7 +225,7 @@ impl WebElement {
         self.attr("id").await
     }
 
-    /// Get the text contents for this WebElement.
+    /// Get the text contents for this `WebElement`.
     ///
     /// # Example:
     /// ```no_run
@@ -252,7 +253,7 @@ impl WebElement {
         self.prop("value").await
     }
 
-    /// Click the WebElement.
+    /// Click the `WebElement`.
     ///
     /// # Example:
     /// ```no_run
@@ -275,7 +276,7 @@ impl WebElement {
         Ok(())
     }
 
-    /// Clear the WebElement contents.
+    /// Clear the `WebElement` contents.
     ///
     /// # Example:
     /// ```no_run
@@ -410,12 +411,12 @@ impl WebElement {
         self.css_value(name).await
     }
 
-    /// Return true if the WebElement is currently selected, otherwise false.
+    /// Return true if the `WebElement` is currently selected, otherwise false.
     pub async fn is_selected(&self) -> WebDriverResult<bool> {
         self.handle.cmd(Command::IsElementSelected(self.element_id.clone())).await?.value()
     }
 
-    /// Return true if the WebElement is currently displayed, otherwise false.
+    /// Return true if the `WebElement` is currently displayed, otherwise false.
     ///
     /// # Example
     /// ```no_run
@@ -437,7 +438,7 @@ impl WebElement {
         self.handle.cmd(Command::IsElementDisplayed(self.element_id.clone())).await?.value()
     }
 
-    /// Return true if the WebElement is currently enabled, otherwise false.
+    /// Return true if the `WebElement` is currently enabled, otherwise false.
     ///
     /// # Example
     /// ```no_run
@@ -459,7 +460,7 @@ impl WebElement {
         self.handle.cmd(Command::IsElementEnabled(self.element_id.clone())).await?.value()
     }
 
-    /// Return true if the WebElement is currently clickable (visible and enabled),
+    /// Return true if the `WebElement` is currently clickable (visible and enabled),
     /// otherwise false.
     ///
     /// # Example
@@ -482,7 +483,7 @@ impl WebElement {
         Ok(self.is_displayed().await? && self.is_enabled().await?)
     }
 
-    /// Return true if the WebElement is currently (still) present
+    /// Return true if the `WebElement` is currently (still) present
     /// and not stale.
     ///
     /// NOTE: This method simply queries the tag name to
@@ -520,7 +521,7 @@ impl WebElement {
         Ok(present)
     }
 
-    /// Search for a child element of this WebElement using the specified selector.
+    /// Search for a child element of this `WebElement` using the specified selector.
     ///
     /// **NOTE**: For more powerful element queries including polling and filters, see the
     ///  [`WebElement::query`] method instead.
@@ -551,13 +552,13 @@ impl WebElement {
         r.element(self.handle.clone())
     }
 
-    /// Search for a child element of this WebElement using the specified selector.
+    /// Search for a child element of this `WebElement` using the specified selector.
     #[deprecated(since = "0.30.0", note = "This method has been renamed to find()")]
     pub async fn find_element(&self, by: By) -> WebDriverResult<WebElement> {
         self.find(by).await
     }
 
-    /// Search for all child elements of this WebElement that match the specified selector.
+    /// Search for all child elements of this `WebElement` that match the specified selector.
     ///
     /// **NOTE**: For more powerful element queries including polling and filters, see the
     /// [`WebElement::query`] method instead.
@@ -591,7 +592,7 @@ impl WebElement {
         r.elements(self.handle.clone())
     }
 
-    /// Search for all child elements of this WebElement that match the specified selector.
+    /// Search for all child elements of this `WebElement` that match the specified selector.
     #[deprecated(since = "0.30.0", note = "This method has been renamed to find_all()")]
     pub async fn find_elements(&self, by: By) -> WebDriverResult<Vec<WebElement>> {
         self.find_all(by).await
@@ -639,24 +640,24 @@ impl WebElement {
         Ok(())
     }
 
-    /// Take a screenshot of this WebElement and return it as PNG, base64 encoded.
+    /// Take a screenshot of this `WebElement` and return it as PNG, base64 encoded.
     pub async fn screenshot_as_png_base64(&self) -> WebDriverResult<String> {
         self.handle.cmd(Command::TakeElementScreenshot(self.element_id.clone())).await?.value()
     }
 
-    /// Take a screenshot of this WebElement and return it as PNG bytes.
+    /// Take a screenshot of this `WebElement` and return it as PNG bytes.
     pub async fn screenshot_as_png(&self) -> WebDriverResult<Vec<u8>> {
         base64_decode(&self.screenshot_as_png_base64().await?)
     }
 
-    /// Take a screenshot of this WebElement and write it to the specified filename.
+    /// Take a screenshot of this `WebElement` and write it to the specified filename.
     pub async fn screenshot(&self, path: &Path) -> WebDriverResult<()> {
         let png = self.screenshot_as_png().await?;
         support::write_file(path, png).await?;
         Ok(())
     }
 
-    /// Focus this WebElement using JavaScript.
+    /// Focus this `WebElement` using JavaScript.
     ///
     /// # Example:
     /// ```no_run
@@ -675,7 +676,7 @@ impl WebElement {
     /// # }
     /// ```
     pub async fn focus(&self) -> WebDriverResult<()> {
-        self.handle.execute(r#"arguments[0].focus();"#, vec![self.to_json()?]).await?;
+        self.handle.execute(r"arguments[0].focus();", vec![self.to_json()?]).await?;
         Ok(())
     }
 
@@ -813,7 +814,7 @@ impl WebElement {
         Ok(())
     }
 
-    /// Get the parent of the WebElement.
+    /// Get the parent of the `WebElement`.
     ///
     /// # Example
     /// ```no_run

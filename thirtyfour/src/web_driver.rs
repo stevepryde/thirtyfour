@@ -11,7 +11,7 @@ use crate::session::http::create_reqwest_client;
 use crate::session::http::HttpClient;
 use crate::Capabilities;
 
-/// The `WebDriver` struct encapsulates an async Selenium WebDriver browser
+/// The `WebDriver` struct encapsulates an async Selenium `WebDriver` browser
 /// session.
 ///
 /// # Example:
@@ -43,7 +43,7 @@ pub struct WebDriver {
 pub struct AlreadyQuit(pub(crate) ());
 
 impl WebDriver {
-    /// Create a new WebDriver as follows:
+    /// Create a new `WebDriver` as follows:
     ///
     /// # Example
     /// ```no_run
@@ -62,7 +62,7 @@ impl WebDriver {
     ///
     /// ## Using Selenium Server
     /// - For selenium 3.x, you need to also add "/wd/hub/session" to the end of the url
-    ///   (e.g. "http://localhost:4444/wd/hub/session")
+    ///   (e.g. "<http://localhost:4444/wd/hub/session>")
     /// - For selenium 4.x and later, no path should be needed on the url.
     ///
     /// ## Troubleshooting
@@ -189,8 +189,8 @@ impl WebDriver {
     }
 }
 
-/// The Deref implementation allows the WebDriver to "fall back" to SessionHandle and
-/// exposes all the methods there without requiring us to use an async_trait.
+/// The Deref implementation allows the `WebDriver` to "fall back" to `SessionHandle` and
+/// exposes all the methods there without requiring us to use an `async_trait`.
 /// See documentation at the top of this module for more details on the design.
 impl Deref for WebDriver {
     type Target = Arc<SessionHandle>;

@@ -13,9 +13,9 @@ pub trait ElementPoller: Debug + Send + 'static {
     fn tick(&mut self) -> Pin<Box<dyn Future<Output = bool> + Send + '_>>;
 }
 
-/// Trait for returning a struct that implements ElementPoller.
+/// Trait for returning a struct that implements `ElementPoller`.
 ///
-/// The start() method will be called at the beginning of the polling loop.
+/// The `start()` method will be called at the beginning of the polling loop.
 pub trait IntoElementPoller: Debug {
     /// Start a new poller.
     fn start(&self) -> AnyElementPoller;
@@ -72,6 +72,7 @@ pub struct ElementPollerWithTimeout {
 
 impl ElementPollerWithTimeout {
     /// Create a new `ElementPollerWithTimeout`.
+    #[must_use] 
     pub fn new(timeout: Duration, interval: Duration) -> Self {
         Self {
             timeout,
@@ -112,7 +113,7 @@ impl ElementPoller for ElementPollerWithTimeout {
             let actual_elapsed = start.elapsed();
 
             if actual_elapsed < minimum_elapsed {
-                sleep(minimum_elapsed - actual_elapsed).await;
+                sleep(minimum_elapsed.checked_sub(actual_elapsed).unwrap()).await;
             }
 
             true

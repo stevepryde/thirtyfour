@@ -51,6 +51,7 @@ impl Default for NetworkConditions {
 
 impl NetworkConditions {
     /// Create a new `NetworkConditions` instance.
+    #[must_use] 
     pub fn new() -> Self {
         Self::default()
     }

@@ -20,48 +20,56 @@ pub(crate) fn negate(result: WebDriverResult<bool>, ignore_errors: bool) -> WebD
 }
 
 /// Predicate that returns true for elements that are enabled.
+#[must_use] 
 pub fn element_is_enabled(ignore_errors: bool) -> impl ElementPredicate {
     move |elem: WebElement| async move { handle_errors(elem.is_enabled().await, ignore_errors) }
 }
 
 /// Predicate that returns true for elements that are not enabled.
+#[must_use] 
 pub fn element_is_not_enabled(ignore_errors: bool) -> impl ElementPredicate {
     move |elem: WebElement| async move { negate(elem.is_enabled().await, ignore_errors) }
 }
 
 /// Predicate that returns true for elements that are selected.
+#[must_use] 
 pub fn element_is_selected(ignore_errors: bool) -> impl ElementPredicate {
     move |elem: WebElement| async move { handle_errors(elem.is_selected().await, ignore_errors) }
 }
 
 /// Predicate that returns true for elements that are not selected.
+#[must_use] 
 pub fn element_is_not_selected(ignore_errors: bool) -> impl ElementPredicate {
     move |elem: WebElement| async move { negate(elem.is_selected().await, ignore_errors) }
 }
 
 /// Predicate that returns true for elements that are displayed.
+#[must_use] 
 pub fn element_is_displayed(ignore_errors: bool) -> impl ElementPredicate {
     move |elem: WebElement| async move { handle_errors(elem.is_displayed().await, ignore_errors) }
 }
 
 /// Predicate that returns true for elements that are not displayed.
+#[must_use] 
 pub fn element_is_not_displayed(ignore_errors: bool) -> impl ElementPredicate {
     move |elem: WebElement| async move { negate(elem.is_displayed().await, ignore_errors) }
 }
 
 /// Predicate that returns true for elements that are clickable.
+#[must_use] 
 pub fn element_is_clickable(ignore_errors: bool) -> impl ElementPredicate {
     move |elem: WebElement| async move { handle_errors(elem.is_clickable().await, ignore_errors) }
 }
 
 /// Predicate that returns true for elements that are not clickable.
+#[must_use] 
 pub fn element_is_not_clickable(ignore_errors: bool) -> impl ElementPredicate {
     move |elem: WebElement| async move { negate(elem.is_clickable().await, ignore_errors) }
 }
 
 /// Predicate that returns true for elements that have the specified class name.
 /// See the `Needle` documentation for more details on text matching rules.
-/// In particular, it is recommended to use StringMatch or Regex to perform a whole-word search.
+/// In particular, it is recommended to use `StringMatch` or Regex to perform a whole-word search.
 pub fn element_has_class<N>(class_name: N, ignore_errors: bool) -> impl ElementPredicate
 where
     N: Needle + Clone + Send + Sync + 'static,
@@ -80,7 +88,7 @@ where
 
 /// Predicate that returns true for elements that do not contain the specified class name.
 /// See the `Needle` documentation for more details on text matching rules.
-/// In particular, it is recommended to use StringMatch or Regex to perform a whole-word search.
+/// In particular, it is recommended to use `StringMatch` or Regex to perform a whole-word search.
 pub fn element_lacks_class<N>(class_name: N, ignore_errors: bool) -> impl ElementPredicate
 where
     N: Needle + Clone + Send + Sync + 'static,

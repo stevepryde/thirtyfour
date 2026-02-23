@@ -13,7 +13,7 @@ use crate::{
     Capabilities, SessionId, TimeoutConfiguration,
 };
 
-/// Start a new WebDriver session, returning the session id and the
+/// Start a new `WebDriver` session, returning the session id and the
 /// capabilities JSON that was received back from the server.
 pub async fn start_session<C: HttpClient>(
     http_client: &C,

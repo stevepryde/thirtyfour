@@ -1,13 +1,13 @@
 use serde::{Deserialize, Serialize};
 
-/// Enum representing the SameSite attribute of a cookie.
+/// Enum representing the `SameSite` attribute of a cookie.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum SameSite {
-    /// Strict SameSite attribute.
+    /// Strict `SameSite` attribute.
     Strict,
-    /// Lax SameSite attribute.
+    /// Lax `SameSite` attribute.
     Lax,
-    /// No SameSite attribute.
+    /// No `SameSite` attribute.
     None,
 }
 

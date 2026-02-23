@@ -19,6 +19,7 @@ impl Default for OperaCapabilities {
 
 impl OperaCapabilities {
     /// Create a new `OperaCapabilities`.
+    #[must_use] 
     pub fn new() -> Self {
         let mut capabilities = Capabilities::new();
         capabilities.insert("browserName".to_string(), json!("opera"));

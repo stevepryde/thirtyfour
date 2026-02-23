@@ -157,6 +157,7 @@ impl<T: Resolve + Clone + 'static> ElementResolver<T> {
 
 impl ElementResolver<WebElement> {
     /// Create a new element resolver that must return a single element.
+    #[must_use] 
     pub fn new_single(base_element: WebElement, by: By) -> Self {
         let resolver = move |elem: WebElement| {
             let by = by.clone();
@@ -166,6 +167,7 @@ impl ElementResolver<WebElement> {
     }
 
     /// Create a new element resolver that must return a single element, with extra options.
+    #[must_use] 
     pub fn new_single_opts(base_element: WebElement, by: By, options: ElementQueryOptions) -> Self {
         let resolver = move |elem: WebElement| {
             let by = by.clone();
@@ -176,6 +178,7 @@ impl ElementResolver<WebElement> {
     }
 
     /// Create a new element resolver that returns the first element.
+    #[must_use] 
     pub fn new_first(base_element: WebElement, by: By) -> Self {
         let resolver = move |elem: WebElement| {
             let by = by.clone();
@@ -185,6 +188,7 @@ impl ElementResolver<WebElement> {
     }
 
     /// Create a new element resolver that returns the first element, with extra options.
+    #[must_use] 
     pub fn new_first_opts(base_element: WebElement, by: By, options: ElementQueryOptions) -> Self {
         let resolver = move |elem: WebElement| {
             let by = by.clone();
@@ -199,6 +203,7 @@ impl ElementResolver<Vec<WebElement>> {
     /// Create a new element resolver that returns all elements, if any.
     ///
     /// If no elements were found, this will resolve to an empty Vec.
+    #[must_use] 
     pub fn new_allow_empty(base_element: WebElement, by: By) -> Self {
         let resolver = move |elem: WebElement| {
             let by = by.clone();
@@ -208,6 +213,7 @@ impl ElementResolver<Vec<WebElement>> {
     }
 
     /// Create a new element resolver that returns all elements (if any), with extra options.
+    #[must_use] 
     pub fn new_allow_empty_opts(
         base_element: WebElement,
         by: By,
@@ -223,8 +229,9 @@ impl ElementResolver<Vec<WebElement>> {
 
     /// Create a new element resolver that returns at least one element.
     ///
-    /// If no elements were found, a NoSuchElement error will be returned by the resolver's
+    /// If no elements were found, a `NoSuchElement` error will be returned by the resolver's
     /// `resolve()` method.
+    #[must_use] 
     pub fn new_not_empty(base_element: WebElement, by: By) -> Self {
         let resolver = move |elem: WebElement| {
             let by = by.clone();
@@ -235,8 +242,9 @@ impl ElementResolver<Vec<WebElement>> {
 
     /// Create a new element resolver that returns at least one element, with extra options.
     ///
-    /// If no elements were found, a NoSuchElement error will be returned by the resolver's
+    /// If no elements were found, a `NoSuchElement` error will be returned by the resolver's
     /// `resolve()` method.
+    #[must_use] 
     pub fn new_not_empty_opts(
         base_element: WebElement,
         by: By,
@@ -253,6 +261,7 @@ impl ElementResolver<Vec<WebElement>> {
 
 impl<T: Component + Clone + 'static> ElementResolver<T> {
     /// Create a new element resolver that must return a single component.
+    #[must_use] 
     pub fn new_single(base_element: WebElement, by: By) -> Self {
         let resolver = move |elem: WebElement| {
             let by = by.clone();
@@ -265,6 +274,7 @@ impl<T: Component + Clone + 'static> ElementResolver<T> {
     }
 
     /// Create a new element resolver that must return a single component, with extra options.
+    #[must_use] 
     pub fn new_single_opts(base_element: WebElement, by: By, options: ElementQueryOptions) -> Self {
         let resolver = move |elem: WebElement| {
             let by = by.clone();
@@ -278,6 +288,7 @@ impl<T: Component + Clone + 'static> ElementResolver<T> {
     }
 
     /// Create a new element resolver that returns the first component.
+    #[must_use] 
     pub fn new_first(base_element: WebElement, by: By) -> Self {
         let resolver = move |elem: WebElement| {
             let by = by.clone();
@@ -290,6 +301,7 @@ impl<T: Component + Clone + 'static> ElementResolver<T> {
     }
 
     /// Create a new element resolver that returns the first component, with extra options.
+    #[must_use] 
     pub fn new_first_opts(base_element: WebElement, by: By, options: ElementQueryOptions) -> Self {
         let resolver = move |elem: WebElement| {
             let by = by.clone();
@@ -307,6 +319,7 @@ impl<T: Component + Clone + 'static> ElementResolver<Vec<T>> {
     /// Create a new element resolver that returns all components, if any.
     ///
     /// If no components were found, this will resolve to an empty Vec.
+    #[must_use] 
     pub fn new_allow_empty(base_element: WebElement, by: By) -> Self {
         let resolver = move |elem: WebElement| {
             let by = by.clone();
@@ -319,6 +332,7 @@ impl<T: Component + Clone + 'static> ElementResolver<Vec<T>> {
     }
 
     /// Create a new element resolver that returns all components (if any), with extra options.
+    #[must_use] 
     pub fn new_allow_empty_opts(
         base_element: WebElement,
         by: By,
@@ -337,8 +351,9 @@ impl<T: Component + Clone + 'static> ElementResolver<Vec<T>> {
 
     /// Create a new element resolver that returns at least one component.
     ///
-    /// If no components were found, a NoSuchElement error will be returned by the resolver's
+    /// If no components were found, a `NoSuchElement` error will be returned by the resolver's
     /// `resolve()` method.
+    #[must_use] 
     pub fn new_not_empty(base_element: WebElement, by: By) -> Self {
         let resolver = move |elem: WebElement| {
             let by = by.clone();
@@ -352,8 +367,9 @@ impl<T: Component + Clone + 'static> ElementResolver<Vec<T>> {
 
     /// Create a new element resolver that returns at least one component, with extra options.
     ///
-    /// If no components were found, a NoSuchElement error will be returned by the resolver's
+    /// If no components were found, a `NoSuchElement` error will be returned by the resolver's
     /// `resolve()` method.
+    #[must_use] 
     pub fn new_not_empty_opts(
         base_element: WebElement,
         by: By,

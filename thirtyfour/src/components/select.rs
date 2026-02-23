@@ -37,7 +37,7 @@ impl Display for Escaped<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         for (i, substring) in self.0.split('\"').enumerate() {
             if i != 0 {
-                f.write_str(", '\"', ")?
+                f.write_str(", '\"', ")?;
             }
             write!(f, "\"{substring}\"",)?;
         }
@@ -48,7 +48,8 @@ impl Display for Escaped<'_> {
     }
 }
 
-/// Escape the specified string for use in Css or XPath selector.
+/// Escape the specified string for use in Css or `XPath` selector.
+#[must_use] 
 pub fn escape_string(value: &str) -> String {
     let contains_single = value.contains('\'');
     let contains_double = value.contains('\"');
@@ -74,7 +75,7 @@ pub struct SelectElement {
 }
 
 impl SelectElement {
-    /// Instantiate a new SelectElement struct. The specified element must be a `<select>` element.
+    /// Instantiate a new `SelectElement` struct. The specified element must be a `<select>` element.
     pub async fn new(element: &WebElement) -> WebDriverResult<SelectElement> {
         let multiple = element.attr("multiple").await?.filter(|x| x != "false").is_some();
         let element = element.clone();
@@ -186,14 +187,14 @@ impl SelectElement {
             }
         }
 
-        if !matched {
-            Err(no_such_element(format!("Could not locate element with visible text: {text}")))
-        } else {
+        if matched {
             Ok(())
+        } else {
+            Err(no_such_element(format!("Could not locate element with visible text: {text}")))
         }
     }
 
-    /// Set the selection state of options that match the specified XPath condition.
+    /// Set the selection state of options that match the specified `XPath` condition.
     async fn set_selection_by_xpath_condition(
         &self,
         condition: &str,
@@ -258,8 +259,8 @@ impl SelectElement {
         self.set_selection_by_visible_text(text, true).await
     }
 
-    /// Select options matching the specified XPath condition.
-    /// E.g. The specified condition replaces `{}` in this XPath: `.//option[{}]`
+    /// Select options matching the specified `XPath` condition.
+    /// E.g. The specified condition replaces `{}` in this `XPath`: `.//option[{}]`
     ///
     /// The following example would match `.//option[starts-with(text(), 'pre')]`:
     /// ```ignore
@@ -315,8 +316,8 @@ impl SelectElement {
         self.set_selection_by_visible_text(text, false).await
     }
 
-    /// Deselect options matching the specified XPath condition.
-    /// E.g. The specified condition replaces `{}` in this XPath: `.//option[{}]`
+    /// Deselect options matching the specified `XPath` condition.
+    /// E.g. The specified condition replaces `{}` in this `XPath`: `.//option[{}]`
     ///
     /// The following example would match `.//option[starts-with(text(), 'pre')]`:
     /// ```ignore

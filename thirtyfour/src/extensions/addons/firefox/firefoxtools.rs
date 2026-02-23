@@ -17,7 +17,7 @@ pub struct FirefoxTools {
 }
 
 impl FirefoxTools {
-    /// Create a new FirefoxTools struct.
+    /// Create a new `FirefoxTools` struct.
     ///
     /// # Example:
     /// ```no_run

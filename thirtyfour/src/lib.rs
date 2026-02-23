@@ -1,7 +1,7 @@
-//! Thirtyfour is a Selenium / WebDriver library for Rust, for automated website UI testing.
+//! Thirtyfour is a Selenium / `WebDriver` library for Rust, for automated website UI testing.
 //!
-//! It supports the W3C WebDriver v1 spec.
-//! Tested with Chrome and Firefox, although any W3C-compatible WebDriver
+//! It supports the W3C `WebDriver` v1 spec.
+//! Tested with Chrome and Firefox, although any W3C-compatible `WebDriver`
 //! should work.
 //!
 //! ## Getting Started
@@ -10,11 +10,11 @@
 //!
 //! ## Features
 //!
-//! - All W3C WebDriver and WebElement methods supported
+//! - All W3C `WebDriver` and `WebElement` methods supported
 //! - Async / await support (tokio only)
-//! - Create new browser session directly via WebDriver (e.g. chromedriver)
+//! - Create new browser session directly via `WebDriver` (e.g. chromedriver)
 //! - Create new browser session via Selenium Standalone or Grid
-//! - Find elements (via all common selectors e.g. Id, Class, CSS, Tag, XPath)
+//! - Find elements (via all common selectors e.g. Id, Class, CSS, Tag, `XPath`)
 //! - Send keys to elements, including key-combinations
 //! - Execute Javascript
 //! - Action Chains
@@ -23,7 +23,7 @@
 //! - Shadow DOM support
 //! - Alert support
 //! - Capture / Save screenshot of browser or individual element as PNG
-//! - Some Chrome DevTools Protocol (CDP) support
+//! - Some Chrome `DevTools` Protocol (CDP) support
 //! - Advanced query interface including explicit waits and various predicates
 //! - Component Wrappers (similar to `Page Object Model`)
 //!
@@ -210,7 +210,7 @@ pub mod components;
 pub mod error;
 /// Extensions for specific browsers.
 pub mod extensions;
-/// Everything related to driving the underlying WebDriver session.
+/// Everything related to driving the underlying `WebDriver` session.
 pub mod session;
 /// Miscellaneous support functions for `thirtyfour` tests.
 pub mod support;

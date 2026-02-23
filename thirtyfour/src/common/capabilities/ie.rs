@@ -18,6 +18,7 @@ impl Default for InternetExplorerCapabilities {
 
 impl InternetExplorerCapabilities {
     /// Create a new `InternetExplorerCapabilities`.
+    #[must_use] 
     pub fn new() -> Self {
         let mut capabilities = Capabilities::new();
         capabilities.insert("browserName".to_string(), json!("internet explorer"));

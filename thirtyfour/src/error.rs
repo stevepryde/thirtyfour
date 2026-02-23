@@ -3,7 +3,7 @@ use serde::Deserialize;
 use std::fmt::{Display, Formatter, Write};
 use std::ops::{Deref, DerefMut};
 
-/// Type def for Result<T, WebDriverError>.
+/// Type def for Result<T, `WebDriverError`>.
 pub type WebDriverResult<T> = Result<T, WebDriverError>;
 
 fn indent_lines(message: &str, indent: usize) -> String {
@@ -13,7 +13,7 @@ fn indent_lines(message: &str, indent: usize) -> String {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
             for (i, s) in self.0.split('\n').enumerate() {
                 if i != 0 {
-                    f.write_char('\n')?
+                    f.write_char('\n')?;
                 }
                 write!(f, "{:i$}{s}", " ", i = self.1)?;
             }
@@ -24,21 +24,22 @@ fn indent_lines(message: &str, indent: usize) -> String {
     IdentLines(message, indent).to_string()
 }
 
-/// Struct representing the error value returned by the WebDriver server.
+/// Struct representing the error value returned by the `WebDriver` server.
 #[derive(Debug, Deserialize, Clone)]
 pub struct WebDriverErrorValue {
-    /// The WebDriver error message.
+    /// The `WebDriver` error message.
     pub message: String,
-    /// This error is returned from the WebDriver.
+    /// This error is returned from the `WebDriver`.
     pub error: Option<String>,
-    /// This stacktrace is returned from the WebDriver.
+    /// This stacktrace is returned from the `WebDriver`.
     pub stacktrace: Option<String>,
-    /// This data is returned from the WebDriver.
+    /// This data is returned from the `WebDriver`.
     pub data: Option<serde_json::Value>,
 }
 
 impl WebDriverErrorValue {
-    /// Create a new WebDriverErrorValue.
+    /// Create a new `WebDriverErrorValue`.
+    #[must_use] 
     pub fn new(message: String) -> Self {
         Self {
             message,
@@ -70,21 +71,22 @@ impl Display for WebDriverErrorValue {
     }
 }
 
-/// Struct representing the error information returned by the WebDriver server.
+/// Struct representing the error information returned by the `WebDriver` server.
 #[derive(Debug, Deserialize, Clone)]
 pub struct WebDriverErrorInfo {
     /// The HTTP status code of the response.
     #[serde(skip)]
     pub status: u16,
-    /// The WebDriver error state.
+    /// The `WebDriver` error state.
     #[serde(default, rename(deserialize = "state"))]
     pub error: String,
-    /// The WebDriver error value.
+    /// The `WebDriver` error value.
     pub value: WebDriverErrorValue,
 }
 
 impl WebDriverErrorInfo {
-    /// Create a new WebDriverErrorInfo.
+    /// Create a new `WebDriverErrorInfo`.
+    #[must_use] 
     pub fn new(message: String) -> Self {
         Self {
             status: 0,
@@ -111,7 +113,7 @@ impl Display for WebDriverErrorInfo {
     }
 }
 
-/// WebDriverError is the main error type for thirtyfour
+/// `WebDriverError` is the main error type for thirtyfour
 #[derive(Debug, thiserror::Error)]
 #[error(transparent)]
 pub struct WebDriverError(Box<WebDriverErrorInner>);
@@ -289,7 +291,8 @@ webdriver_err! {
 }
 
 impl WebDriverError {
-    /// Create a new WebDriverError by parsing the response from the WebDriver server.
+    /// Create a new `WebDriverError` by parsing the response from the `WebDriver` server.
+    #[must_use] 
     pub fn parse(status: u16, body: String) -> Self {
         let body_json = match serde_json::from_str(&body) {
             Ok(x) => x,
@@ -344,16 +347,19 @@ impl WebDriverError {
     }
 
     /// gets a reference to the underlying enum representation of this error
+    #[must_use] 
     pub fn as_inner(&self) -> &WebDriverErrorInner {
         self
     }
 
     /// converts the underlying representation to the main representation
+    #[must_use] 
     pub fn from_inner(err: WebDriverErrorInner) -> Self {
         Self(Box::new(err))
     }
 
     /// converts this error to its underlying representation
+    #[must_use] 
     pub fn into_inner(self) -> WebDriverErrorInner {
         *self.0
     }
@@ -385,7 +391,8 @@ impl DerefMut for WebDriverError {
     }
 }
 
-/// Convenience function to construct a simulated NoSuchElement error.
+/// Convenience function to construct a simulated `NoSuchElement` error.
+#[must_use] 
 pub fn no_such_element(message: String) -> WebDriverError {
     WebDriverError::from_inner(WebDriverErrorInner::NoSuchElement(WebDriverErrorInfo {
         status: 400,

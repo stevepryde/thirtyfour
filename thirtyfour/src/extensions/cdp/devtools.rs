@@ -5,7 +5,7 @@ use crate::session::handle::SessionHandle;
 use serde_json::{json, Value};
 use std::sync::Arc;
 
-/// The ChromeDevTools struct allows you to interact with Chromium-based browsers via
+/// The `ChromeDevTools` struct allows you to interact with Chromium-based browsers via
 /// the Chrome Devtools Protocol (CDP).
 ///
 /// You can find documentation for the available commands here:
@@ -37,7 +37,7 @@ pub struct ChromeDevTools {
 }
 
 impl ChromeDevTools {
-    /// Create a new ChromeDevTools struct.
+    /// Create a new `ChromeDevTools` struct.
     ///
     /// # Example:
     /// ```no_run
