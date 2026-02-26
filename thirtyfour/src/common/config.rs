@@ -196,9 +196,28 @@ impl WebDriverConfigBuilder {
     }
 
     /// Set the HTTP Basic Auth credentials for Selenium grid authentication.
+    ///
+    /// Accepts a tuple of (username, password) which is converted internally to `BasicAuth`.
     #[must_use]
-    pub fn basic_auth(mut self, basic_auth: Option<BasicAuth>) -> Self {
-        self.basic_auth = basic_auth;
+    pub fn basic_auth<U, P>(mut self, username: U, password: P) -> Self
+    where
+        U: Into<String>,
+        P: Into<String>,
+    {
+        self.basic_auth = Some(BasicAuth::new(username, password));
+        self
+    }
+
+    /// Set the HTTP Basic Auth credentials from an optional tuple.
+    ///
+    /// Use this when you want to conditionally set auth (passing None to disable).
+    #[must_use]
+    pub fn basic_auth_option<U, P>(mut self, credentials: Option<(U, P)>) -> Self
+    where
+        U: Into<String>,
+        P: Into<String>,
+    {
+        self.basic_auth = credentials.map(|(u, p)| BasicAuth::new(u, p));
         self
     }
 
