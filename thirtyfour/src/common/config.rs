@@ -8,6 +8,60 @@ use http::HeaderValue;
 use std::sync::Arc;
 use std::time::Duration;
 
+/// Configuration for BiDi connection URL derivation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum BidiConnectionType {
+    /// Use the hub-provided WebSocket URL directly from the newSession response.
+    #[default]
+    UseHubProvided,
+    /// Derive the BiDi connection URL from the server URL using a well-known port.
+    DeriveFromServerUrl,
+}
+
+/// HTTP Basic Auth credentials for Selenium grid authentication.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct BasicAuth {
+    /// The username for authentication.
+    pub username: String,
+    /// The password for authentication.
+    pub password: String,
+}
+
+impl BasicAuth {
+    /// Create a new `BasicAuth` with the specified credentials.
+    #[must_use]
+    pub fn new(username: impl Into<String>, password: impl Into<String>) -> Self {
+        Self {
+            username: username.into(),
+            password: password.into(),
+        }
+    }
+
+    /// Create a new `BasicAuth` from a reqwest header value.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the provided string is not valid UTF-8 or is malformed.
+    pub fn from_header_value(
+        header_value: &HeaderValue,
+    ) -> WebDriverResult<BasicAuth> {
+        let decoded = header_value.to_str().map_err(|_| {
+            WebDriverError::InvalidArgument(crate::error::WebDriverErrorInfo::new(
+                "Basic auth header is not valid UTF-8".to_string(),
+            ))
+        })?;
+
+        // Split on first ':' to allow passwords containing ':'
+        let (username, password) = decoded.split_once(':').ok_or_else(|| {
+            WebDriverError::InvalidArgument(crate::error::WebDriverErrorInfo::new(
+                "Basic auth header must be in format 'username:password'".to_string(),
+            ))
+        })?;
+
+        Ok(BasicAuth::new(username, password))
+    }
+}
+
 /// Configuration options used by a `WebDriver` instance and the related `SessionHandle`.
 ///
 /// The configuration of a `WebDriver` will be shared by all elements found via that instance.
@@ -22,6 +76,10 @@ pub struct WebDriverConfig {
     pub user_agent: HeaderValue,
     /// The timeout duration for reqwest client requests.
     pub reqwest_timeout: Duration,
+    /// Configuration for BiDi connection URL derivation.
+    pub bidi_connection_type: BidiConnectionType,
+    /// HTTP Basic Auth credentials for Selenium grid authentication.
+    pub basic_auth: Option<BasicAuth>,
 }
 
 impl Default for WebDriverConfig {
@@ -74,6 +132,8 @@ pub struct WebDriverConfigBuilder {
     poller: Option<Arc<dyn IntoElementPoller + Send + Sync>>,
     user_agent: Option<WebDriverResult<HeaderValue>>,
     reqwest_timeout: Duration,
+    bidi_connection_type: BidiConnectionType,
+    basic_auth: Option<BasicAuth>,
 }
 
 impl Default for WebDriverConfigBuilder {
@@ -91,6 +151,8 @@ impl WebDriverConfigBuilder {
             poller: None,
             user_agent: None,
             reqwest_timeout: Duration::from_secs(120),
+            bidi_connection_type: BidiConnectionType::default(),
+            basic_auth: None,
         }
     }
 
@@ -126,6 +188,20 @@ impl WebDriverConfigBuilder {
         self
     }
 
+    /// Set the BiDi connection type for URL derivation.
+    #[must_use]
+    pub fn bidi_connection_type(mut self, bidi_connection_type: BidiConnectionType) -> Self {
+        self.bidi_connection_type = bidi_connection_type;
+        self
+    }
+
+    /// Set the HTTP Basic Auth credentials for Selenium grid authentication.
+    #[must_use]
+    pub fn basic_auth(mut self, basic_auth: Option<BasicAuth>) -> Self {
+        self.basic_auth = basic_auth;
+        self
+    }
+
     /// Build `WebDriverConfig` using builder options.
     ///
     /// # Errors
@@ -137,6 +213,8 @@ impl WebDriverConfigBuilder {
             poller: self.poller.unwrap_or_else(|| Arc::new(ElementPollerWithTimeout::default())),
             user_agent: self.user_agent.transpose()?.unwrap_or(WebDriverConfig::DEFAULT_USER_AGENT),
             reqwest_timeout: self.reqwest_timeout,
+            bidi_connection_type: self.bidi_connection_type,
+            basic_auth: self.basic_auth,
         })
     }
 }
