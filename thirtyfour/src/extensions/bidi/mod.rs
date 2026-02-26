@@ -240,6 +240,7 @@ pub struct BiDiSessionBuilder {
     pub(crate) event_channel_capacity: usize,
     pub(crate) command_timeout: Option<Duration>,
     pub(crate) install_crypto_provider: bool,
+    pub(crate) use_server_url: bool,
     pub(crate) basic_auth: Option<(String, String)>,
 }
 
@@ -249,6 +250,7 @@ impl Default for BiDiSessionBuilder {
             event_channel_capacity: 256,
             command_timeout: None,
             install_crypto_provider: false,
+            use_server_url: false,
             basic_auth: None,
         }
     }
@@ -291,6 +293,19 @@ impl BiDiSessionBuilder {
     #[must_use]
     pub fn install_crypto_provider(mut self) -> Self {
         self.install_crypto_provider = true;
+        self
+    }
+
+    /// Use the server URL to derive the WebSocket URL instead of using
+    /// the Hub-provided one.
+    ///
+    /// When enabled, the BiDi WebSocket URL will be constructed from the
+    /// server URL by replacing `http`/`https` with `ws`/`wss` and appending
+    /// `/session/{session_id}/bidi`. This is useful when the WebDriver
+    /// server does not provide a BiDi connection URL in its response.
+    #[must_use]
+    pub fn use_server_url(mut self) -> Self {
+        self.use_server_url = true;
         self
     }
 
