@@ -115,9 +115,9 @@ impl SessionHandle {
     pub fn derive_bidi_ws_url(&self) -> String {
         let url_str = self.server_url.as_ref().as_str();
         if url_str.starts_with("https://") {
-            format!("wss{}", &url_str[4..])
+            format!("wss{}", &url_str[8..])
         } else if url_str.starts_with("http://") {
-            format!("ws{}", &url_str[3..])
+            format!("ws{}", &url_str[7..])
         } else {
             url_str.to_string()
         }
