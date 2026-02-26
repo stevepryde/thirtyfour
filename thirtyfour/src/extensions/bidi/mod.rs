@@ -331,13 +331,19 @@ impl BiDiSessionBuilder {
         BiDiSession::connect_with_config(ws_url, self).await
     }
 
-    /// Connect using `WebDriver`'s session `webSocketUrl`.
+    /// Connect using `WebDriver`'s session or server URL.
     ///
     /// This method respects all builder configuration including:
+    /// - `use_server_url()` to derive BiDi URL from the server instead of hub-provided one
     /// - `install_crypto_provider()` for TLS connections
     /// - `basic_auth()` for HTTP Basic Authentication
     /// - `command_timeout()` for command timeouts
     /// - `event_channel_capacity()` for event buffer size
+    ///
+    /// When `.use_server_url()` is not explicitly called on the builder, this method respects
+    /// [`WebDriverConfig::bidi_connection_type`]:
+    /// - [`BidiConnectionType::UseHubProvided`] (default): Uses the WebSocket URL from session capabilities
+    /// - [`BidiConnectionType::DeriveFromServerUrl`]: Derives BiDi URL from the server URL
     ///
     /// **Important:** After connecting, you must run the dispatch loop.
     /// Use either [`BiDiSession::dispatch_future`] or [`BiDiSession::poll_dispatch`].
@@ -345,21 +351,41 @@ impl BiDiSessionBuilder {
     /// # Errors
     ///
     /// Returns `WebDriverError::BiDi` if:
-    /// - The browser did not return a `webSocketUrl` in session capabilities
+    /// - No WebSocket URL is available (when not using server URL derivation)
+    /// - The browser doesn't support BiDi from the server URL (when use_server_url is set)
     /// - The WebSocket connection fails
     pub async fn connect_with_driver(
-        self,
+        mut self,
         driver: &crate::WebDriver,
     ) -> WebDriverResult<BiDiSession> {
-        let ws_url = driver.handle.websocket_url.as_deref().ok_or_else(|| {
+        let ws_url = if self.use_server_url {
+            // Builder explicitly requested to derive URL from server (overrides config)
+            Some(driver.handle.derive_bidi_ws_url())
+        } else {
+            // Respect the config's bidi_connection_type setting
+            match driver.handle.config().bidi_connection_type {
+                crate::common::config::BidiConnectionType::DeriveFromServerUrl => {
+                    Some(driver.handle.derive_bidi_ws_url())
+                }
+                crate::common::config::BidiConnectionType::UseHubProvided => {
+                    driver.handle.websocket_url.clone()
+                }
+            }
+        };
+
+        let ws_url = ws_url.ok_or_else(|| {
             WebDriverError::BiDi(
-                "No webSocketUrl in session capabilities. \
+                "No webSocketUrl in session capabilities and unable to derive from server URL. \
                  Enable BiDi in your browser capabilities \
-                 (e.g., for Chrome: set 'webSocketUrl: true')."
+                 (e.g., for Chrome: set 'webSocketUrl: true'), \
+                 or configure BidiConnectionType::DeriveFromServerUrl in WebDriverConfig."
                     .to_string(),
             )
         })?;
-        self.connect(ws_url).await
+
+        // Clear the use_server_url flag so it's not processed again in connect()
+        self.use_server_url = false;
+        self.connect(&ws_url).await
     }
 }
 
