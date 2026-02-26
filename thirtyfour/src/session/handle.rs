@@ -111,17 +111,24 @@ impl SessionHandle {
 
     /// Derive the WebSocket URL for BiDi connections from the server URL.
     ///
+    /// Uses only the host (and port) portion of the server URL, not any path.
+    /// This is because BiDi uses a different route to connect to the node.
+    ///
     /// Converts http:// to ws:// and https:// to wss://.
     pub fn derive_bidi_ws_url(&self) -> String {
-        let url_str = self.server_url.as_ref().as_str();
-        if url_str.starts_with("https://") {
-            // Skip "https://" (8 chars), prepend wss://
-            format!("wss://{}", &url_str[8..])
-        } else if url_str.starts_with("http://") {
-            // Skip "http://" (7 chars), prepend ws://
-            format!("ws://{}", &url_str[7..])
+        let url = self.server_url.as_ref();
+        
+        // Get host with port (if present)
+        let host_with_port = if let Some(port) = url.port() {
+            format!("{}:{}", url.host_str().unwrap_or("localhost"), port)
         } else {
-            url_str.to_string()
+            url.host_str().unwrap_or("localhost").to_string()
+        };
+        
+        // Use ws or wss based on the original scheme
+        match url.scheme() {
+            "https" => format!("wss://{}/", host_with_port),
+            _ => format!("ws://{}/", host_with_port),
         }
     }
 
