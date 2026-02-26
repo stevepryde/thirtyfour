@@ -91,7 +91,7 @@ impl WebDriver {
     {
         // TODO: create builder
         #[cfg(feature = "reqwest")]
-        let client = create_reqwest_client(config.reqwest_timeout);
+        let client = create_reqwest_client(config.reqwest_timeout, config.basic_auth.clone());
         #[cfg(not(feature = "reqwest"))]
         let client = crate::session::http::null_client::create_null_client();
         Self::new_with_config_and_client(server_url, capabilities, config, client).await

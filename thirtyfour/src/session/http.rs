@@ -119,9 +119,33 @@ mod tests {
     }
 }
 
+use crate::common::config::BasicAuth;
+
 #[cfg(feature = "reqwest")]
-pub(crate) fn create_reqwest_client(timeout: std::time::Duration) -> reqwest::Client {
-    reqwest::Client::builder().timeout(timeout).build().expect("Failed to create reqwest client")
+pub(crate) fn create_reqwest_client(
+    timeout: std::time::Duration,
+    basic_auth: Option<BasicAuth>,
+) -> reqwest::Client {
+    use base64::prelude::BASE64_STANDARD;
+    use http::header::{HeaderMap, HeaderValue, AUTHORIZATION};
+
+    let mut builder = reqwest::Client::builder().timeout(timeout);
+    if let Some(auth) = basic_auth {
+        // Create the Authorization header with Basic auth credentials.
+        // Format: "Basic <base64(username:password)>"
+        let credentials = format!("{}:{}", auth.username, auth.password);
+        let encoded = BASE64_STANDARD.encode(credentials.as_bytes());
+        let auth_value = format!("Basic {}", encoded);
+
+        let mut headers = HeaderMap::new();
+        // Mark as sensitive to prevent logging of credentials
+        let mut header_value =
+            HeaderValue::from_str(&auth_value).expect("valid Authorization header");
+        header_value.set_sensitive(true);
+        headers.insert(AUTHORIZATION, header_value);
+        builder = builder.default_headers(headers);
+    }
+    builder.build().expect("Failed to create reqwest client")
 }
 
 // Null client so that we can compile without the `reqwest` feature.
