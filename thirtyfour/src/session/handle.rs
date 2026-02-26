@@ -109,6 +109,20 @@ impl SessionHandle {
         &self.config
     }
 
+    /// Derive the WebSocket URL for BiDi connections from the server URL.
+    ///
+    /// Converts http:// to ws:// and https:// to wss://.
+    pub fn derive_bidi_ws_url(&self) -> String {
+        let url_str = self.server_url.as_ref().as_str();
+        if url_str.starts_with("https://") {
+            format!("wss{}", &url_str[4..])
+        } else if url_str.starts_with("http://") {
+            format!("ws{}", &url_str[3..])
+        } else {
+            url_str.to_string()
+        }
+    }
+
     /// Send the specified command to the webdriver server.
     pub async fn cmd(&self, command: impl FormatRequestData) -> WebDriverResult<CmdResponse> {
         let request_data = command.format_request(&self.session_id);
