@@ -276,8 +276,12 @@ impl WebDriver {
         &self,
         builder: crate::extensions::bidi::BiDiSessionBuilder,
     ) -> crate::error::WebDriverResult<crate::extensions::bidi::BiDiSession> {
-        // Get the WebSocket URL, respecting both builder's use_server_url flag and config
-        let ws_url = if builder.use_server_url {
+        // Get the WebSocket URL, respecting custom_url_base, use_server_url flag, and config
+        let ws_url = if let Some(ref base) = builder.custom_url_base {
+            // Use custom base + session path (takes absolute precedence)
+            let sid = self.handle.session_id();
+            format!("{}/session/{}/se/bidi", base.trim_end_matches('/'), sid)
+        } else if builder.use_server_url {
             self.handle.derive_bidi_ws_url()
         } else {
             match self.handle.config().bidi_connection_type {
