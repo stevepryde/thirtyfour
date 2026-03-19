@@ -219,7 +219,8 @@ let bidi = driver.bidi_connect_with_builder(
 ## Testing
 
 1. Unit test: Verify `url_base()` sets the field correctly and validates `ws://`/`wss://` prefix
-2. Unit test: Verify URL construction with custom base includes session path
-3. Integration test: Connect using custom URL base to a mock/test server
-4. Verify `WebDriver::bidi_connect_with_builder()` properly passes custom URL to the builder
-5. Verify `BiDiSessionBuilder::connect_with_driver()` properly handles custom URL
+2. Unit test: Verify `url_base()` panics when given `http://` or invalid URL
+3. Unit test: Verify URL construction with custom base includes session path
+4. Integration test: Connect using custom URL base to a mock/test server
+5. Verify `WebDriver::bidi_connect_with_builder()` properly passes custom URL to the builder
+6. Verify `BiDiSessionBuilder::connect_with_driver()` properly handles custom URL
