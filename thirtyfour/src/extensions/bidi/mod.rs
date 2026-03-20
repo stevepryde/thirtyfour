@@ -332,19 +332,59 @@ impl BiDiSessionBuilder {
     /// **Note:** When `url_base()` is set, it takes absolute precedence over
     /// `use_server_url()` and `BidiConnectionType` settings.
     ///
+    /// # Precedence
+    ///
+    /// The BiDi WebSocket URL is resolved in the following order:
+    ///
+    /// 1. **Custom URL base** (highest priority) - set via `url_base()`
+    /// 2. **Builder flag** - if `use_server_url()` was called
+    /// 3. **Config setting** - `WebDriverConfig::bidi_connection_type`:
+    ///    - `DeriveFromServerUrl` - derive from server URL
+    ///    - `UseHubProvided` - use WebSocket URL from session capabilities
+    ///
     /// # Example
+    ///
     /// ```ignore
     /// let bidi = driver.bidi_connect_with_builder(
     ///     BiDiSessionBuilder::new()
     ///         .url_base("wss://bidi.grid.example.com:4444")
     /// ).await?;
     /// ```
+    ///
+    /// # Precedence Example
+    ///
+    /// ```ignore
+    /// // Even with use_server_url() and config set to DeriveFromServerUrl,
+    /// // the custom URL base takes precedence:
+    /// let bidi = driver.bidi_connect_with_builder(
+    ///     BiDiSessionBuilder::new()
+    ///         .use_server_url()  // This is ignored when url_base() is set
+    ///         .url_base("wss://bidi.grid.example.com:4444")  // Highest priority
+    /// ).await?;
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if the URL does not start with `ws://` or `wss://`, or if the host
+    /// portion is empty.
     #[must_use]
     pub fn url_base(mut self, url: &str) -> Self {
         // Validate that URL starts with ws:// or wss://
         if !url.starts_with("ws://") && !url.starts_with("wss://") {
             panic!("BiDi URL base must start with ws:// or wss://");
         }
+
+        // Validate that there's content after the scheme
+        let after_scheme = if url.starts_with("ws://") {
+            &url[5..] // Skip "ws://"
+        } else {
+            &url[6..] // Skip "wss://"
+        };
+
+        if after_scheme.is_empty() || after_scheme.starts_with('/') {
+            panic!("BiDi URL base must include a host");
+        }
+
         self.custom_url_base = Some(url.to_string());
         self
     }
@@ -1336,10 +1376,52 @@ mod tests {
     }
 
     #[test]
-    fn test_url_base_empty_is_valid() {
-        // Test that minimal valid URL (scheme only) passes validation
-        // Connection will fail at runtime due to missing host, but validation passes
-        let builder = BiDiSessionBuilder::new().url_base("ws://");
-        assert_eq!(builder.custom_url_base, Some("ws://".to_string()));
+    #[should_panic(expected = "BiDi URL base must include a host")]
+    fn test_url_base_no_host() {
+        let _ = BiDiSessionBuilder::new().url_base("ws://");
     }
+
+    #[test]
+    #[should_panic(expected = "BiDi URL base must include a host")]
+    fn test_url_base_only_slash() {
+        let _ = BiDiSessionBuilder::new().url_base("wss:///");
+    }
+
+    #[test]
+    fn test_url_base_minimal_valid() {
+        // Test that minimal valid URL with just host passes validation
+        let builder = BiDiSessionBuilder::new().url_base("ws://localhost");
+        assert_eq!(builder.custom_url_base, Some("ws://localhost".to_string()));
+    }
+    #[test]
+    fn test_url_construction_with_trailing_slash() {
+        // Test that trailing slashes are trimmed when constructing full URL
+        let base = "wss://localhost:4444/";
+        let sid = "test-session-123";
+        let expected = "wss://localhost:4444/session/test-session-123/se/bidi";
+        let actual = format!("{}/session/{}/se/bidi", base.trim_end_matches('/'), sid);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_url_construction_without_trailing_slash() {
+        // Test that URLs without trailing slash work correctly
+        let base = "wss://localhost:4444";
+        let sid = "test-session-456";
+        let expected = "wss://localhost:4444/session/test-session-456/se/bidi";
+        let actual = format!("{}/session/{}/se/bidi", base.trim_end_matches('/'), sid);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_url_construction_with_port() {
+        // Test that URLs with custom ports work correctly
+        let base = "ws://192.168.1.100:8080";
+        let sid = "session-abc-789";
+        let expected = "ws://192.168.1.100:8080/session/session-abc-789/se/bidi";
+        let actual = format!("{}/session/{}/se/bidi", base.trim_end_matches('/'), sid);
+        assert_eq!(actual, expected);
+    }
+
+
 }
