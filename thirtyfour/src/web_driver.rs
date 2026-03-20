@@ -294,9 +294,10 @@ impl WebDriver {
                         .as_deref()
                         .ok_or_else(|| {
                             crate::prelude::WebDriverError::BiDi(
-                                "No webSocketUrl in session capabilities. \
+                                "No webSocketUrl in session capabilities and unable to derive from server URL. \
                              Enable BiDi in your browser capabilities \
-                             (e.g., for Chrome: set 'webSocketUrl: true')."
+                             (e.g., for Chrome: set 'webSocketUrl: true'), \
+                             or configure BidiConnectionType::DeriveFromServerUrl in WebDriverConfig."
                                     .to_string(),
                             )
                         })?.to_string()

@@ -1337,8 +1337,8 @@ mod tests {
 
     #[test]
     fn test_url_base_empty_is_valid() {
-        // Empty string will fail at connection time, not validation time
-        // But we need at least ws:// or wss:// prefix
+        // Test that minimal valid URL (scheme only) passes validation
+        // Connection will fail at runtime due to missing host, but validation passes
         let builder = BiDiSessionBuilder::new().url_base("ws://");
         assert_eq!(builder.custom_url_base, Some("ws://".to_string()));
     }
