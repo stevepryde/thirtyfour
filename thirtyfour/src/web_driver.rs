@@ -91,7 +91,7 @@ impl WebDriver {
     {
         // TODO: create builder
         #[cfg(feature = "reqwest")]
-        let client = create_reqwest_client(config.reqwest_timeout);
+        let client = create_reqwest_client(config.reqwest_timeout, config.basic_auth.clone());
         #[cfg(not(feature = "reqwest"))]
         let client = crate::session::http::null_client::create_null_client();
         Self::new_with_config_and_client(server_url, capabilities, config, client).await
@@ -165,38 +165,61 @@ impl WebDriver {
     /// For Chrome, set `"webSocketUrl": true` in capabilities.
     /// For Firefox, BiDi is enabled by default in supported versions.
     ///
+    /// The connection method depends on [`WebDriverConfig::bidi_connection_type`]:
+    /// - [`BidiConnectionType::UseHubProvided`] (default): Uses the WebSocket URL
+    ///   returned by the browser during session creation.
+    /// - [`BidiConnectionType::DeriveFromServerUrl`]: Derives the BiDi WebSocket URL
+    ///   from the server URL. This is useful when the browser doesn't provide a
+    ///   `webSocketUrl` but supports BiDi on a well-known path.
+    ///
     /// **Important:** After connecting, you must spawn the dispatch loop:
     /// ```ignore
     /// let mut bidi = driver.bidi_connect().await?;
     /// tokio::spawn(bidi.dispatch_future().expect("dispatch already started"));
     /// ```
     ///
-    /// # Limitations
+    /// # TLS Support
     ///
-    /// This convenience method does not configure TLS or authentication.
-    /// If your infrastructure requires:
-    /// - **TLS/SSL** (`wss://` connections): Use [`Self::bidi_connect_with_builder`] with
-    ///   `BiDiSessionBuilder::install_crypto_provider()`
-    /// - **HTTP Basic Authentication**: Use [`Self::bidi_connect_with_builder`] with
-    ///   `BiDiSessionBuilder::basic_auth()`
+    /// This convenience method automatically installs a crypto provider for `wss://`
+    /// (TLS) connections. If you need custom TLS configuration, use
+    /// [`Self::bidi_connect_with_builder`] instead.
     ///
     /// # Errors
     ///
     /// Returns `WebDriverError::BiDi` if:
-    /// - The browser did not return a `webSocketUrl` in session capabilities
+    /// - No WebSocket URL is available and [`BidiConnectionType::UseHubProvided`] is set
+    /// - The browser doesn't support BiDi from server URL when
+    ///   [`BidiConnectionType::DeriveFromServerUrl`] is set
     /// - The WebSocket connection fails
     pub async fn bidi_connect(
         &self,
     ) -> crate::error::WebDriverResult<crate::extensions::bidi::BiDiSession> {
-        let ws_url = self.handle.websocket_url.as_deref().ok_or_else(|| {
-            crate::prelude::WebDriverError::BiDi(
-                "No webSocketUrl in session capabilities. \
-                 Enable BiDi in your browser capabilities \
-                 (e.g., for Chrome: set 'webSocketUrl: true')."
-                    .to_string(),
-            )
-        })?;
-        crate::extensions::bidi::BiDiSession::connect(ws_url).await
+        let ws_url = match self.handle.config().bidi_connection_type {
+            crate::common::config::BidiConnectionType::UseHubProvided => {
+                self.handle.websocket_url.as_deref().ok_or_else(|| {
+                    crate::prelude::WebDriverError::BiDi(
+                        "No webSocketUrl in session capabilities. \
+                         Enable BiDi in your browser capabilities \
+                         (e.g., for Chrome: set 'webSocketUrl: true')."
+                            .to_string(),
+                    )
+                })?.to_string()
+            }
+            crate::common::config::BidiConnectionType::DeriveFromServerUrl => {
+                self.handle.derive_bidi_ws_url()
+            }
+        };
+
+        let mut builder = crate::extensions::bidi::BiDiSessionBuilder::new();
+        if ws_url.starts_with("wss://") {
+            builder = builder.install_crypto_provider();
+        }
+
+        if let Some(ref auth) = self.handle.config().basic_auth {
+            builder = builder.basic_auth(&auth.username, &auth.password);
+        }
+
+        builder.connect(&ws_url).await
     }
 
     #[cfg(feature = "bidi")]
@@ -253,15 +276,81 @@ impl WebDriver {
         &self,
         builder: crate::extensions::bidi::BiDiSessionBuilder,
     ) -> crate::error::WebDriverResult<crate::extensions::bidi::BiDiSession> {
-        let ws_url = self.handle.websocket_url.as_deref().ok_or_else(|| {
-            crate::prelude::WebDriverError::BiDi(
-                "No webSocketUrl in session capabilities. \
-                 Enable BiDi in your browser capabilities \
-                 (e.g., for Chrome: set 'webSocketUrl: true')."
-                    .to_string(),
-            )
-        })?;
-        builder.connect(ws_url).await
+        // Get the WebSocket URL, respecting custom_url_base, use_server_url flag, and config
+        let ws_url = if let Some(ref base) = builder.custom_url_base {
+            // Use custom base + session path (takes absolute precedence)
+            let sid = self.handle.session_id();
+            format!("{}/session/{}/se/bidi", base.trim_end_matches('/'), sid)
+        } else if builder.use_server_url {
+            self.handle.derive_bidi_ws_url()
+        } else {
+            match self.handle.config().bidi_connection_type {
+                crate::common::config::BidiConnectionType::DeriveFromServerUrl => {
+                    self.handle.derive_bidi_ws_url()
+                }
+                crate::common::config::BidiConnectionType::UseHubProvided => {
+                    self.handle
+                        .websocket_url
+                        .as_deref()
+                        .ok_or_else(|| {
+                            crate::prelude::WebDriverError::BiDi(
+                                "No webSocketUrl in session capabilities and unable to derive from server URL. \
+                             Enable BiDi in your browser capabilities \
+                             (e.g., for Chrome: set 'webSocketUrl: true'), \
+                             or configure BidiConnectionType::DeriveFromServerUrl in WebDriverConfig."
+                                    .to_string(),
+                            )
+                        })?.to_string()
+                }
+            }
+        };
+
+        builder.connect(&ws_url).await
+    }
+
+    #[cfg(feature = "bidi")]
+    /// Connect to the WebDriver BiDi channel using a derived server URL.
+    ///
+    /// This method derives the BiDi WebSocket URL from the server URL by converting:
+    /// - `http://server:port` → `ws://server:port`
+    /// - `https://server:port` → `wss://server:port`
+    ///
+    /// Use this method when:
+    /// - The browser/Selenium grid doesn't return a `webSocketUrl` in capabilities
+    /// - You want to explicitly connect via the server URL rather than hub-provided one
+    ///
+    /// **Important:** After connecting, you must spawn the dispatch loop:
+    /// ```ignore
+    /// let mut bidi = driver.bidi_connect_with_server_url().await?;
+    /// tokio::spawn(bidi.dispatch_future().expect("dispatch already started"));
+    /// ```
+    ///
+    /// # TLS Support
+    ///
+    /// This method automatically installs a crypto provider for `wss://` connections.
+    /// If your infrastructure requires additional TLS configuration, use
+    /// [`Self::bidi_connect_with_builder`] instead.
+    ///
+    /// # Basic Auth
+    ///
+    /// This method applies the HTTP Basic Authentication from the WebDriver config
+    /// (if configured). Use [`Self::bidi_connect_with_builder`] to override with
+    /// custom credentials.
+    pub async fn bidi_connect_with_server_url(
+        &self,
+    ) -> crate::error::WebDriverResult<crate::extensions::bidi::BiDiSession> {
+        let ws_url = self.handle.derive_bidi_ws_url();
+
+        let mut builder = crate::extensions::bidi::BiDiSessionBuilder::new();
+        if ws_url.starts_with("wss://") {
+            builder = builder.install_crypto_provider();
+        }
+
+        if let Some(ref auth) = self.handle.config().basic_auth {
+            builder = builder.basic_auth(&auth.username, &auth.password);
+        }
+
+        builder.connect(&ws_url).await
     }
 }
 
