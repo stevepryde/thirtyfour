@@ -194,32 +194,15 @@ impl WebDriver {
     pub async fn bidi_connect(
         &self,
     ) -> crate::error::WebDriverResult<crate::extensions::bidi::BiDiSession> {
-        let ws_url = match self.handle.config().bidi_connection_type {
-            crate::common::config::BidiConnectionType::UseHubProvided => {
-                self.handle.websocket_url.as_deref().ok_or_else(|| {
-                    crate::prelude::WebDriverError::BiDi(
-                        "No webSocketUrl in session capabilities. \
-                         Enable BiDi in your browser capabilities \
-                         (e.g., for Chrome: set 'webSocketUrl: true')."
-                            .to_string(),
-                    )
-                })?.to_string()
-            }
-            crate::common::config::BidiConnectionType::DeriveFromServerUrl => {
-                self.handle.derive_bidi_ws_url()
-            }
-        };
-
         let mut builder = crate::extensions::bidi::BiDiSessionBuilder::new();
-        if ws_url.starts_with("wss://") {
-            builder = builder.install_crypto_provider();
-        }
-
+        
+        // Configure auth from WebDriver config
         if let Some(ref auth) = self.handle.config().basic_auth {
             builder = builder.basic_auth(&auth.username, &auth.password);
         }
-
-        builder.connect(&ws_url).await
+        
+        // Use connect_with_driver which respects bidi_connection_type and handles URL resolution
+        builder.connect_with_driver(self).await
     }
 
     #[cfg(feature = "bidi")]

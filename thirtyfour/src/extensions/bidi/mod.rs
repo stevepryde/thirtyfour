@@ -368,36 +368,62 @@ impl BiDiSessionBuilder {
     /// Panics if the URL does not start with `ws://` or `wss://`, or if the host
     /// portion is empty.
     #[must_use]
-    pub fn url_base(mut self, url: &str) -> Self {
-        // Validate that URL starts with ws:// or wss://
-        if !url.starts_with("ws://") && !url.starts_with("wss://") {
-            panic!("BiDi URL base must start with ws:// or wss://");
-        }
-
-        // Validate that there's content after the scheme
-        let after_scheme = if url.starts_with("ws://") {
-            &url[5..] // Skip "ws://"
-        } else {
-            &url[6..] // Skip "wss://"
-        };
-
-        if after_scheme.is_empty() || after_scheme.starts_with('/') {
-            panic!("BiDi URL base must include a host");
-        }
-
-        self.custom_url_base = Some(url.to_string());
-        self
-    }
-
-    /// Connect to the `BiDi` WebSocket endpoint with the configured settings.
+    /// Set a custom base URL for the BiDi WebSocket connection.
     ///
-    /// **Important:** After connecting, you must run the dispatch loop.
-    /// Use either [`BiDiSession::dispatch_future`] or [`BiDiSession::poll_dispatch`].
+    /// When set, this overrides both the hub-provided WebSocket URL and the
+    /// server-derived URL. The library will append `/session/{session_id}/se/bidi`
+    /// to construct the full connection URL.
+    ///
+    /// Use this when connecting to a separate BiDi server or proxy.
+    ///
+    /// **Note:** When `url_base()` is set, it takes absolute precedence over
+    /// `use_server_url()` and `BidiConnectionType` settings.
+    ///
+    /// # Precedence
+    ///
+    /// The BiDi WebSocket URL is resolved in the following order:
+    ///
+    /// 1. **Custom URL base** (highest priority) - set via `url_base()`
+    /// 2. **Builder flag** - if `use_server_url()` was called
+    /// 3. **Config setting** - `WebDriverConfig::bidi_connection_type`:
+    ///    - `DeriveFromServerUrl` - derive from server URL
+    ///    - `UseHubProvided` (default) - use hub-provided URL
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let bidi = driver.bidi_connect_with_builder(
+    ///     BiDiSessionBuilder::new()
+    ///         .url_base("wss://bidi.grid.example.com:4444")
+    /// ).await?;
+    /// ```
     ///
     /// # Errors
     ///
-    /// Returns `WebDriverError::BiDi` if the WebSocket connection fails.
-    pub async fn connect(self, ws_url: &str) -> WebDriverResult<BiDiSession> {
+    /// Returns an error if the URL does not start with `ws://` or `wss://`,
+    /// or if the host portion is empty.
+    pub fn url_base<U>(mut self, url: U) -> WebDriverResult<Self>
+    where
+        U: Into<String>,
+    {
+        let url = url.into();
+        let url_str = url.as_str();
+        } else {
+            &url_str[6..] // Skip "wss://"
+        };
+
+        if after_scheme.is_empty() || after_scheme.starts_with('/') {
+            return Err(WebDriverError::InvalidArgument(
+                crate::error::WebDriverErrorInfo::new(
+                    "BiDi URL base must include a host".to_string(),
+                )
+            ));
+        }
+
+        self.custom_url_base = Some(url.to_string());
+        self.use_server_url = false;
+        Ok(self)
+    }    pub async fn connect(self, ws_url: &str) -> WebDriverResult<BiDiSession> {
         BiDiSession::connect_with_config(ws_url, self).await
     }
 
@@ -444,18 +470,15 @@ impl BiDiSessionBuilder {
                 crate::common::config::BidiConnectionType::UseHubProvided => {
                     driver.handle.websocket_url.clone().ok_or_else(|| {
                         WebDriverError::BiDi(
-                            "No webSocketUrl in session capabilities and unable to derive from server URL. \
-                             Enable BiDi in your browser capabilities \
-                             (e.g., for Chrome: set 'webSocketUrl: true'), \
-                             or configure BidiConnectionType::DeriveFromServerUrl in WebDriverConfig."
-                                .to_string(),
-                        )
-                    })?
-                }
-            }
-        };
-
-        // Clear the use_server_url flag so it's not processed again in connect()
+                        driver.handle.websocket_url.clone().ok_or_else(|| {
+                            WebDriverError::BiDi(
+                                "No webSocketUrl in session capabilities. \
+                                 Enable BiDi in your browser capabilities \
+                                 (e.g., for Chrome: set 'webSocketUrl: true'), \
+                                 or use BidiConnectionType::DeriveFromServerUrl. "
+                                    .to_string(),
+                            )
+                        })?
         self.use_server_url = false;
         self.connect(&ws_url).await
     }

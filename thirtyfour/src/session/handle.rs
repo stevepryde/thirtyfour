@@ -110,8 +110,13 @@ impl SessionHandle {
     }
 
     /// Derive the WebSocket URL for BiDi connections from the server URL.
-    ///
+    /// Derive the WebSocket URL for BiDi connections from the server URL.
     /// Uses only the host (and port) portion of the server URL, not any path.
+    ///
+    /// **Note:** This uses the same port as the HTTP server. Some Selenium Grid
+    /// deployments may use a different port for BiDi connections. If this
+    /// method does not work, use a custom URL base via
+    /// `BiDiSessionBuilder::url_base()` instead.
     /// This is because BiDi uses a different route to connect to the node.
     ///
     /// Converts http:// to ws:// and https:// to wss://.
