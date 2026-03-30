@@ -19,7 +19,7 @@ pub enum BidiConnectionType {
 }
 
 /// HTTP Basic Auth credentials for Selenium grid authentication.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Clone, PartialEq, Eq, Default)]
 pub struct BasicAuth {
     /// The username for authentication.
     pub username: String,
@@ -36,29 +36,14 @@ impl BasicAuth {
             password: password.into(),
         }
     }
+}
 
-    /// Create a new `BasicAuth` from a reqwest header value.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the provided string is not valid UTF-8 or is malformed.
-    pub fn from_header_value(
-        header_value: &HeaderValue,
-    ) -> WebDriverResult<BasicAuth> {
-        let decoded = header_value.to_str().map_err(|_| {
-            WebDriverError::InvalidArgument(crate::error::WebDriverErrorInfo::new(
-                "Basic auth header is not valid UTF-8".to_string(),
-            ))
-        })?;
-
-        // Split on first ':' to allow passwords containing ':'
-        let (username, password) = decoded.split_once(':').ok_or_else(|| {
-            WebDriverError::InvalidArgument(crate::error::WebDriverErrorInfo::new(
-                "Basic auth header must be in format 'username:password'".to_string(),
-            ))
-        })?;
-
-        Ok(BasicAuth::new(username, password))
+impl std::fmt::Debug for BasicAuth {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BasicAuth")
+            .field("username", &self.username)
+            .field("password", &"***REDACTED***")
+            .finish()
     }
 }
 
@@ -68,7 +53,7 @@ impl BasicAuth {
 #[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct WebDriverConfig {
-    /// If true, send the "Connection: keep-alive" header with all requests.
+    /// If true, send "Connection: keep-alive" header with all requests.
     pub keep_alive: bool,
     /// The default poller to use when performing element queries or waits.
     pub poller: Arc<dyn IntoElementPoller + Send + Sync>,
@@ -156,7 +141,7 @@ impl WebDriverConfigBuilder {
         }
     }
 
-    /// Set the `keep_alive` option.
+    /// Set `keep_alive` option.
     #[must_use]
     pub fn keep_alive(mut self, keep_alive: bool) -> Self {
         self.keep_alive = keep_alive;
@@ -225,7 +210,7 @@ impl WebDriverConfigBuilder {
     ///
     /// # Errors
     ///
-    /// Returns a `WebDriverError` if the user agent conversion fails.
+    /// Returns a `WebDriverError` if user agent conversion fails.
     pub fn build(self) -> WebDriverResult<WebDriverConfig> {
         Ok(WebDriverConfig {
             keep_alive: self.keep_alive,
