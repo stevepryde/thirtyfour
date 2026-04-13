@@ -195,12 +195,12 @@ impl WebDriver {
         &self,
     ) -> crate::error::WebDriverResult<crate::extensions::bidi::BiDiSession> {
         let mut builder = crate::extensions::bidi::BiDiSessionBuilder::new();
-        
+
         // Configure auth from WebDriver config
         if let Some(ref auth) = self.handle.config().basic_auth {
             builder = builder.basic_auth(&auth.username, &auth.password);
         }
-        
+
         // Use connect_with_driver which respects bidi_connection_type and handles URL resolution
         builder.connect_with_driver(self).await
     }

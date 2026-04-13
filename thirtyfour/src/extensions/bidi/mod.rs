@@ -408,22 +408,39 @@ impl BiDiSessionBuilder {
     {
         let url = url.into();
         let url_str = url.as_str();
-        } else {
+        let after_scheme = if url_str.starts_with("ws://") {
+            &url_str[5..] // Skip "ws://"
+        } else if url_str.starts_with("wss://") {
             &url_str[6..] // Skip "wss://"
+        } else {
+            return Err(WebDriverError::InvalidArgument(crate::error::WebDriverErrorInfo::new(
+                "BiDi URL base must start with 'ws://' or 'wss://'".to_string(),
+            )));
         };
 
         if after_scheme.is_empty() || after_scheme.starts_with('/') {
-            return Err(WebDriverError::InvalidArgument(
-                crate::error::WebDriverErrorInfo::new(
-                    "BiDi URL base must include a host".to_string(),
-                )
-            ));
+            return Err(WebDriverError::InvalidArgument(crate::error::WebDriverErrorInfo::new(
+                "BiDi URL base must include a host".to_string(),
+            )));
         }
 
         self.custom_url_base = Some(url.to_string());
         self.use_server_url = false;
         Ok(self)
-    }    pub async fn connect(self, ws_url: &str) -> WebDriverResult<BiDiSession> {
+    }
+
+    /// Connect to a BiDi WebSocket endpoint using this builder configuration.
+    ///
+    /// This method connects to the specified WebSocket URL and returns a configured
+    /// [`BiDiSession`] instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `ws_url` - The WebSocket URL to connect to (e.g., `ws://localhost:4444/session/...`)
+    ///
+    /// **Important:** After connecting, you must run the dispatch loop.
+    /// Use either [`BiDiSession::dispatch_future`] or [`BiDiSession::poll_dispatch`].
+    pub async fn connect(self, ws_url: &str) -> WebDriverResult<BiDiSession> {
         BiDiSession::connect_with_config(ws_url, self).await
     }
 
@@ -465,20 +482,22 @@ impl BiDiSessionBuilder {
             // Respect the config's bidi_connection_type setting
             match driver.handle.config().bidi_connection_type {
                 crate::common::config::BidiConnectionType::DeriveFromServerUrl => {
-                    driver.handle.derive_bidi_ws_url()
+                    Ok(driver.handle.derive_bidi_ws_url())
                 }
                 crate::common::config::BidiConnectionType::UseHubProvided => {
                     driver.handle.websocket_url.clone().ok_or_else(|| {
                         WebDriverError::BiDi(
-                        driver.handle.websocket_url.clone().ok_or_else(|| {
-                            WebDriverError::BiDi(
-                                "No webSocketUrl in session capabilities. \
-                                 Enable BiDi in your browser capabilities \
-                                 (e.g., for Chrome: set 'webSocketUrl: true'), \
-                                 or use BidiConnectionType::DeriveFromServerUrl. "
-                                    .to_string(),
-                            )
-                        })?
+                            "No webSocketUrl in session capabilities. \
+                             Enable BiDi in your browser capabilities \
+                             (e.g., for Chrome: set 'webSocketUrl: true'), \
+                             or use BidiConnectionType::DeriveFromServerUrl. "
+                                .to_string(),
+                        )
+                    })
+                }
+            }?
+        };
+
         self.use_server_url = false;
         self.connect(&ws_url).await
     }
@@ -1369,51 +1388,51 @@ mod tests {
 
     #[test]
     fn test_url_base_valid_ws() {
-        let builder = BiDiSessionBuilder::new().url_base("ws://localhost:4444");
+        let builder = BiDiSessionBuilder::new().url_base("ws://localhost:4444").unwrap();
         assert_eq!(builder.custom_url_base, Some("ws://localhost:4444".to_string()));
     }
 
     #[test]
     fn test_url_base_valid_wss() {
-        let builder = BiDiSessionBuilder::new().url_base("wss://localhost:4444");
+        let builder = BiDiSessionBuilder::new().url_base("wss://localhost:4444").unwrap();
         assert_eq!(builder.custom_url_base, Some("wss://localhost:4444".to_string()));
     }
 
     #[test]
-    #[should_panic(expected = "BiDi URL base must start with ws:// or wss://")]
+    #[should_panic(expected = "BiDi URL base must start with 'ws://' or 'wss://'")]
     fn test_url_base_invalid_scheme() {
-        let _ = BiDiSessionBuilder::new().url_base("http://localhost:4444");
+        let _ = BiDiSessionBuilder::new().url_base("http://localhost:4444").unwrap();
     }
 
     #[test]
-    #[should_panic(expected = "BiDi URL base must start with ws:// or wss://")]
+    #[should_panic(expected = "BiDi URL base must start with 'ws://' or 'wss://'")]
     fn test_url_base_invalid_scheme_https() {
-        let _ = BiDiSessionBuilder::new().url_base("https://localhost:4444");
+        let _ = BiDiSessionBuilder::new().url_base("https://localhost:4444").unwrap();
     }
 
     #[test]
     fn test_url_base_with_trailing_slash() {
         // Test that trailing slash is handled correctly
-        let builder = BiDiSessionBuilder::new().url_base("wss://localhost:4444/");
+        let builder = BiDiSessionBuilder::new().url_base("wss://localhost:4444/").unwrap();
         assert_eq!(builder.custom_url_base, Some("wss://localhost:4444/".to_string()));
     }
 
     #[test]
     #[should_panic(expected = "BiDi URL base must include a host")]
     fn test_url_base_no_host() {
-        let _ = BiDiSessionBuilder::new().url_base("ws://");
+        let _ = BiDiSessionBuilder::new().url_base("ws://").unwrap();
     }
 
     #[test]
     #[should_panic(expected = "BiDi URL base must include a host")]
     fn test_url_base_only_slash() {
-        let _ = BiDiSessionBuilder::new().url_base("wss:///");
+        let _ = BiDiSessionBuilder::new().url_base("wss:///").unwrap();
     }
 
     #[test]
     fn test_url_base_minimal_valid() {
         // Test that minimal valid URL with just host passes validation
-        let builder = BiDiSessionBuilder::new().url_base("ws://localhost");
+        let builder = BiDiSessionBuilder::new().url_base("ws://localhost").unwrap();
         assert_eq!(builder.custom_url_base, Some("ws://localhost".to_string()));
     }
     #[test]
@@ -1445,6 +1464,4 @@ mod tests {
         let actual = format!("{}/session/{}/se/bidi", base.trim_end_matches('/'), sid);
         assert_eq!(actual, expected);
     }
-
-
 }

@@ -122,14 +122,14 @@ impl SessionHandle {
     /// Converts http:// to ws:// and https:// to wss://.
     pub fn derive_bidi_ws_url(&self) -> String {
         let url = self.server_url.as_ref();
-        
+
         // Get host with port (if present)
         let host_with_port = if let Some(port) = url.port() {
             format!("{}:{}", url.host_str().unwrap_or("localhost"), port)
         } else {
             url.host_str().unwrap_or("localhost").to_string()
         };
-        
+
         // Use ws or wss based on the original scheme
         match url.scheme() {
             "https" => format!("wss://{}/", host_with_port),
