@@ -79,7 +79,7 @@ reqwest = { version = "0.13", default-features = false, features = [
 
 # Optional dependencies pulled in by the `manager` feature.
 dirs = { version = "6", optional = true }
-fs4 = { version = "0.13", default-features = false, features = ["tokio"], optional = true }
+fs4 = { version = "1.1", default-features = false, features = ["tokio"], optional = true }
 zip = { version = "8", default-features = false, features = ["deflate"], optional = true }
 flate2 = { version = "1", optional = true }
 tar = { version = "0.4", optional = true }
