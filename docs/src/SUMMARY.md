@@ -14,6 +14,7 @@
 - [Forms And Page Content](./recipes/forms-and-content.md)
 - [Frames, Shadow DOM, And Files](./recipes/browser-contexts.md)
 - [Failure Artifacts And Logs](./recipes/diagnostics.md)
+- [Semantic Page Outlines](./recipes/page-snapshots.md)
 - [CDP And BiDi](./recipes/browser-protocols.md)
 # Feature Documentation
 - [Element Queries](./features/queries.md)

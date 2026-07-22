@@ -45,7 +45,7 @@ flows and examples.
 This is useful, but it should follow the simpler docs and ergonomics work so the
 snapshot shape serves real debugging workflows rather than guessing too early.
 
-- [ ] [#340 Explore accessibility or simplified DOM snapshot support for AI-assisted automation](https://github.com/stevepryde/thirtyfour/issues/340)
+- [x] [#340 Explore accessibility or simplified DOM snapshot support for AI-assisted automation](https://github.com/stevepryde/thirtyfour/issues/340)
 
 ## Suggested First Milestone
 

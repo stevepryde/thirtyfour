@@ -75,6 +75,9 @@ or personal data. Disable fields that are unsafe for your application, apply
 application-specific redaction before uploading artifacts, and do not treat
 the default size bounds as a privacy filter.
 
+For a compact selector-oriented view instead of raw page source, use the
+bounded, redaction-aware [semantic page outline](./page-snapshots.md).
+
 ## Take A Screenshot On Failure
 
 ```rust,no_run

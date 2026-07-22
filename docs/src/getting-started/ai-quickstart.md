@@ -92,6 +92,9 @@ async fn saves_profile_settings() -> Result<(), BrowserTestError> {
 - On an error path, call `FailureArtifactCollector::capture()` before
   cleanup for bounded, best-effort URL, title, screenshot, source, and log
   context. See the diagnostics recipe for capability and feature limits.
+- When selector debugging needs page structure, prefer the bounded,
+  redaction-aware [semantic page outline](../recipes/page-snapshots.md) over an
+  unbounded page-source dump.
 
 The copyable [Reliable AI-Generated Tests](./reliable-tests.md) checklist is the
 review gate for generated code. Apply it before accepting a test.
@@ -100,6 +103,8 @@ review gate for generated code. Apply it before accepting a test.
 
 - [Task-Oriented Recipes](../recipes/index.md) — copyable starting points for
   common application flows, browser contexts, diagnostics, CDP, and BiDi.
+- [Semantic Page Outlines](../recipes/page-snapshots.md) — bounded,
+  privacy-conscious structure for selector design and failure diagnosis.
 - [Selenium And Playwright Translation Guide](../tools/selenium-playwright.md) —
   map familiar APIs to queries, waits, Components, and managed sessions without
   inventing APIs from another ecosystem.

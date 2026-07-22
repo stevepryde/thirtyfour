@@ -30,6 +30,8 @@ selectors the real page exposes.
   shadow-root queries, and file upload.
 - [Failure Artifacts And Logs](./diagnostics.md): screenshot-on-failure and
   browser/driver logs.
+- [Semantic Page Outlines](./page-snapshots.md): a bounded, redaction-aware DOM
+  outline for selector design and failure diagnosis.
 - [CDP And BiDi](./browser-protocols.md): a typed Chromium cache command and a
   cross-browser BiDi event subscription.
 

@@ -6,9 +6,8 @@ This specification owns the reliability contract for entry-level `thirtyfour`
 examples, selector guidance, the AI/LLM quickstart, task-oriented recipes, and
 translation guidance, and coding-agent guidance that humans and agents are
 likely to copy. It also defines the browser-test runner, portable failure
-artifacts, and the interaction-helper design boundary; it does not define the
-later page-snapshot work ordered in
-[`todo.md`](../todo.md).
+artifacts, the interaction-helper design boundary, and semantic page-outline
+guidance.
 
 ## Requirements
 
@@ -165,6 +164,25 @@ later page-snapshot work ordered in
 - **AI-INT-004 (confirmed):** Reusable interaction abstractions belong in
   application-specific Component intent methods, where their semantics and
   expected outcome are known.
+- **AI-SNAP-001 (confirmed):** The book must provide a standard-WebDriver
+  semantic page-outline recipe and distinguish its DOM-derived approximation
+  from a browser-computed accessibility tree.
+- **AI-SNAP-002 (confirmed):** Outline output must use a documented allowlist
+  of tag, role, approximate name/text, test ID, normalized control type, shadow
+  boundary, and fixed state fields. It must not capture values, URLs, storage,
+  cookies, arbitrary attributes or classes, or raw markup.
+- **AI-SNAP-003 (confirmed):** Traversal, emitted nodes, nesting, per-field
+  UTF-8 bytes, text inspection, and total UTF-8 output must have conservative
+  hard bounds with an in-bound truncation marker.
+- **AI-SNAP-004 (confirmed):** Sensitive subtrees must support explicit
+  redaction, password/form/contenteditable contents must be excluded, and the
+  documentation must warn that remaining names and text can contain private
+  data.
+- **AI-SNAP-005 (confirmed):** Current-frame, iframe, open/closed shadow-root,
+  portable WebDriver, Chromium CDP, and BiDi boundaries must be explicit. Raw
+  CDP accessibility output must never be presented as safe to print directly.
+- **AI-SNAP-006 (confirmed):** Examples must demonstrate both stable-selector
+  selection and failed-query diagnosis from the outline.
 
 ## Acceptance criteria
 
@@ -251,3 +269,20 @@ later page-snapshot work ordered in
   clearing, retry, and outcome limitations and records the no-new-generic-API
   decision. Existing quickstart and recipe flows remain explicit. Covers
   AI-INT-003 and AI-INT-004.
+- **AC-027:** A standalone recipe contains a complete `no_run` WebDriver
+  example and is linked from navigation, recipes, diagnostics, quickstart, and
+  `llms.txt`. Covers AI-SNAP-001.
+- **AC-028:** The script enforces the specified visited/emitted/depth/text/
+  field/total limits and returns an in-bound marker identifying applied limits.
+  Covers AI-SNAP-003.
+- **AC-029:** Review confirms the output allowlist and that no code path reads
+  form values, URLs, cookies, storage, arbitrary attributes or classes, or raw
+  markup; sensitive subtrees stop traversal. Covers AI-SNAP-002 and AI-SNAP-004.
+- **AC-030:** The page covers current-frame execution, iframe switching,
+  open/closed shadow roots, approximate semantics, portable WebDriver support,
+  and experimental Chromium CDP limitations. Covers AI-SNAP-001 and AI-SNAP-005.
+- **AC-031:** Example output leads to a described, cardinality-explicit
+  `By::Testid` query and explains a concrete disabled-control failure state.
+  Covers AI-SNAP-006.
+- **AC-032:** Formatting, library/doc tests, clippy, rustdoc, mdBook, and a
+  compile check of the new Rust example pass.
