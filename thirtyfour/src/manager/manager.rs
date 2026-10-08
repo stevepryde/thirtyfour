@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::ffi::OsString;
 use std::fmt::Formatter;
 use std::future::{Future, IntoFuture};
 use std::net::{IpAddr, Ipv4Addr};
@@ -99,6 +100,8 @@ pub(crate) struct ResolvedConfig {
     /// `ensure_driver` skips download/cache and spawns the supplied binary
     /// directly.
     pub driver_paths: HashMap<BrowserKind, PathBuf>,
+    /// Additional command-line arguments, applied only to the selected browser's driver.
+    pub driver_args: HashMap<BrowserKind, Vec<OsString>>,
 }
 
 impl std::fmt::Debug for ResolvedConfig {
@@ -113,6 +116,7 @@ impl std::fmt::Debug for ResolvedConfig {
             .field("stdio", &self.stdio)
             .field("show_console_window", &self.show_console_window)
             .field("driver_paths", &self.driver_paths)
+            .field("driver_args", &self.driver_args)
             .finish_non_exhaustive()
     }
 }
@@ -209,6 +213,9 @@ pub struct WebDriverManagerBuilder {
     /// Per-browser driver-binary overrides registered via
     /// [`WebDriverManagerBuilder::driver_binary`].
     pub(crate) driver_paths: HashMap<BrowserKind, PathBuf>,
+    /// Per-browser driver-process arguments registered via
+    /// [`WebDriverManagerBuilder::driver_arg`].
+    pub(crate) driver_args: HashMap<BrowserKind, Vec<OsString>>,
     /// Status subscribers registered before `build`.
     pub(crate) status_subscribers: Vec<StatusCallback>,
     /// Driver-log subscribers registered before `build`.
@@ -231,6 +238,7 @@ impl std::fmt::Debug for WebDriverManagerBuilder {
             .field("stdio", &self.stdio)
             .field("show_console_window", &self.show_console_window)
             .field("driver_paths", &self.driver_paths)
+            .field("driver_args", &self.driver_args)
             .field("status_subscribers", &self.status_subscribers.len())
             .field("log_subscribers", &self.log_subscribers.len())
             .field("web_driver_config", &self.web_driver_config)
@@ -251,6 +259,7 @@ impl Clone for WebDriverManagerBuilder {
             stdio: self.stdio,
             show_console_window: self.show_console_window,
             driver_paths: self.driver_paths.clone(),
+            driver_args: self.driver_args.clone(),
             status_subscribers: self.status_subscribers.iter().map(Arc::clone).collect(),
             log_subscribers: self.log_subscribers.iter().map(Arc::clone).collect(),
             web_driver_config: self.web_driver_config.clone(),
@@ -416,6 +425,40 @@ impl WebDriverManagerBuilder {
         self
     }
 
+    /// Append one command-line argument for the given browser's driver process.
+    ///
+    /// Arguments are passed directly to the driver, without shell expansion or
+    /// splitting. Call repeatedly to add multiple arguments; their order is
+    /// preserved. They apply to every process spawned for this browser by the
+    /// manager, including when using [`WebDriverManagerBuilder::driver_binary`].
+    ///
+    /// These configure the driver server, whereas arguments in browser
+    /// capabilities configure the browser itself. Do not override
+    /// manager-controlled flags such as `--port`, `--allowed-ips`, or
+    /// `--websocket-port`.
+    ///
+    /// To display ChromeDriver's verbose output directly in the parent terminal:
+    ///
+    /// ```no_run
+    /// # use thirtyfour::prelude::*;
+    /// # use thirtyfour::manager::{BrowserKind, StdioMode};
+    /// # async fn run() -> WebDriverResult<()> {
+    /// let driver = WebDriver::managed(DesiredCapabilities::chrome())
+    ///     .driver_arg(BrowserKind::Chrome, "--verbose")
+    ///     .stdio(StdioMode::Inherit)
+    ///     .await?;
+    /// driver.quit().await?;
+    /// # Ok(()) }
+    /// ```
+    ///
+    /// With the default [`StdioMode::Tracing`], output is instead forwarded to
+    /// `tracing` at debug level and to [`WebDriverManagerBuilder::on_driver_log`]
+    /// subscribers, including during startup.
+    pub fn driver_arg(mut self, browser: BrowserKind, arg: impl Into<OsString>) -> Self {
+        self.driver_args.entry(browser).or_default().push(arg.into());
+        self
+    }
+
     /// Register a closure to receive every [`Status`] event emitted by the
     /// resulting manager. Equivalent to calling
     /// [`WebDriverManager::subscribe`] right after `build`, except the
@@ -454,6 +497,7 @@ impl WebDriverManagerBuilder {
             stdio: self.stdio.unwrap_or_default(),
             show_console_window: self.show_console_window.unwrap_or(false),
             driver_paths: self.driver_paths,
+            driver_args: self.driver_args,
         };
         let emitter = Emitter::new();
         for cb in self.status_subscribers {
@@ -694,6 +738,7 @@ impl WebDriverManager {
                 ready_timeout: self.cfg.ready_timeout,
                 stdio: self.cfg.stdio,
                 show_console_window: self.cfg.show_console_window,
+                args: self.cfg.driver_args.get(&browser).cloned().unwrap_or_default(),
             },
             SpawnContext {
                 driver_id: self.mint_driver_id(),

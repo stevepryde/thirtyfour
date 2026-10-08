@@ -6,11 +6,13 @@
 //! auto-downloads the matching `chromedriver` for your installed Chrome,
 //! starts it locally, and shuts it down when the `WebDriver` is dropped.
 
+use thirtyfour::manager::BrowserKind;
 use thirtyfour::prelude::*;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let driver = WebDriver::managed(DesiredCapabilities::chrome())
+        .driver_arg(BrowserKind::Chrome, "--verbose")
         // Print all output from chromedriver itself.
         .on_driver_log(|f| println!("Chromedriver: {}", f.line))
         // Print status output from WebDriverManager

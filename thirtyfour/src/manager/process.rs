@@ -1,3 +1,4 @@
+use std::ffi::OsString;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -43,6 +44,7 @@ pub(crate) struct SpawnConfig {
     pub host: IpAddr,
     pub ready_timeout: Duration,
     pub stdio: StdioMode,
+    pub args: Vec<OsString>,
     /// Windows only: skip `CREATE_NO_WINDOW` so the driver gets its own
     /// console window. Only read on Windows.
     #[cfg_attr(not(windows), allow(dead_code))]
@@ -55,6 +57,7 @@ impl Default for SpawnConfig {
             host: IpAddr::V4(Ipv4Addr::LOCALHOST),
             ready_timeout: Duration::from_secs(30),
             stdio: StdioMode::default(),
+            args: Vec::new(),
             show_console_window: false,
         }
     }
@@ -189,6 +192,7 @@ async fn spawn_at_port(
 ) -> Result<ManagedDriverProcess, ManagerError> {
     // chromedriver, geckodriver, msedgedriver, and safaridriver all accept --port=N.
     let mut cmd = Command::new(binary);
+    cmd.args(&cfg.args);
     cmd.arg(format!("--port={port}"));
     cmd.stdout(cfg.stdio.to_stdio());
     cmd.stderr(cfg.stdio.to_stdio());
