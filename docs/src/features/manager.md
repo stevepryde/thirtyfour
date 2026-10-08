@@ -104,6 +104,7 @@ The most useful builder methods (all available on both
 | `.from_caps()`                    | Read `browserVersion` from the capabilities.          |
 | `.exact("126")`                   | Pin a specific driver version.                        |
 | `.driver_binary(browser, path)`   | Use an already-installed driver binary; skip the download/cache flow for that browser. |
+| `.driver_arg(browser, arg)`       | Append an argument to that browser's driver process.  |
 | `.cache_dir(path)`                | Override the on-disk driver cache.                    |
 | `.host(addr)`                     | Bind the driver to an address other than `127.0.0.1`. |
 | `.download_timeout(d)`            | Cap upstream metadata + download time (default 60s).  |
@@ -114,6 +115,32 @@ The most useful builder methods (all available on both
 | `.on_driver_log(fn)`              | Attach a permanent driver-log subscriber.             |
 
 The default cache directory is `<system cache dir>/thirtyfour/drivers`.
+
+### Driver Arguments
+
+Use `.driver_arg()` for driver-server options such as ChromeDriver's
+`--verbose`. Arguments in capabilities configure the browser itself.
+Repeated calls append arguments in order, only for the specified browser;
+each argument is passed directly without shell expansion or splitting.
+Do not override manager-controlled flags such as `--port`, `--allowed-ips`,
+or `--websocket-port`.
+
+```rust
+# use thirtyfour::prelude::*;
+# use thirtyfour::manager::{BrowserKind, StdioMode};
+# async fn run() -> WebDriverResult<()> {
+let driver = WebDriver::managed(DesiredCapabilities::chrome())
+    .driver_arg(BrowserKind::Chrome, "--verbose")
+    .stdio(StdioMode::Inherit)
+    .await?;
+driver.quit().await?;
+# Ok(()) }
+```
+
+`StdioMode::Inherit` displays driver output in the parent terminal. With
+the default `StdioMode::Tracing`, output goes to `tracing` at debug level
+and to `.on_driver_log()` subscribers. Register a callback on the builder
+to capture startup logs before a session exists.
 
 ## Using A Pre-Installed Driver
 

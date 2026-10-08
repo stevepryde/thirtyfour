@@ -13,7 +13,7 @@
 use std::future::Future;
 use std::time::Duration;
 
-use thirtyfour::manager::WebDriverManager;
+use thirtyfour::manager::{BrowserKind, WebDriverManager};
 use thirtyfour::prelude::*;
 use thirtyfour::{ChromeCapabilities, EdgeCapabilities, FirefoxCapabilities};
 
@@ -81,6 +81,64 @@ async fn managed_chrome_smoke() -> WebDriverResult<()> {
         assert!(
             !driver_is_listening(&server_url).await,
             "quit().await must not return while chromedriver is still listening"
+        );
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn managed_chrome_verbose_logs_reach_startup_subscriber() -> WebDriverResult<()> {
+    with_timeout(async {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let driver = WebDriver::managed(chrome_caps())
+            .driver_arg(BrowserKind::Chrome, "--verbose")
+            // ChromeDriver rejects this log level if arguments leak across browsers.
+            .driver_arg(BrowserKind::Firefox, "--log-level=invalid")
+            .on_driver_log(move |line| {
+                let _ = tx.send(line.line.clone());
+            })
+            .await?;
+
+        // InitSession is logged by ChromeDriver only with verbose logging.
+        // It runs before the builder returns, so a session-level callback would miss it.
+        let received = tokio::time::timeout(Duration::from_secs(10), async {
+            while let Some(line) = rx.recv().await {
+                if line.contains("COMMAND InitSession") {
+                    return true;
+                }
+            }
+            false
+        })
+        .await;
+        driver.quit().await?;
+        assert!(matches!(received, Ok(true)), "missing ChromeDriver verbose startup log");
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn managed_chrome_multiple_driver_args_write_verbose_log_file() -> WebDriverResult<()> {
+    with_timeout(async {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let log_path = dir.path().join("driver log with spaces.txt");
+        let mut log_arg = std::ffi::OsString::from("--log-path=");
+        log_arg.push(&log_path);
+        let builder = WebDriverManager::builder()
+            .driver_arg(BrowserKind::Chrome, "--verbose")
+            .driver_arg(BrowserKind::Chrome, log_arg);
+        let manager = builder.clone().build();
+        let driver = manager.launch(chrome_caps()).await?;
+        driver.quit().await?;
+
+        // The file's presence and command details independently prove that both
+        // arguments survived cloning and spawning, with the path kept as one argument.
+        let log =
+            std::fs::read_to_string(&log_path).expect("ChromeDriver should create the log file");
+        assert!(
+            log.contains("COMMAND InitSession"),
+            "log file should contain verbose startup logs"
         );
         Ok(())
     })
