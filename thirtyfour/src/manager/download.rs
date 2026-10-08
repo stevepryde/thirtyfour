@@ -775,7 +775,11 @@ fn chrome_platform() -> &'static str {
             "win32"
         }
     } else {
-        "linux64"
+        if cfg!(target_arch = "aarch64") {
+            "linux-arm64"
+        } else {
+            "linux64"
+        }
     }
 }
 
