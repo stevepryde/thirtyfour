@@ -43,6 +43,7 @@ impl StdioMode {
 pub(crate) struct SpawnConfig {
     pub host: IpAddr,
     pub ready_timeout: Duration,
+    pub shutdown_timeout: Duration,
     pub stdio: StdioMode,
     pub args: Vec<OsString>,
     /// Windows only: skip `CREATE_NO_WINDOW` so the driver gets its own
@@ -56,6 +57,7 @@ impl Default for SpawnConfig {
         Self {
             host: IpAddr::V4(Ipv4Addr::LOCALHOST),
             ready_timeout: Duration::from_secs(30),
+            shutdown_timeout: Duration::from_secs(10),
             stdio: StdioMode::default(),
             args: Vec::new(),
             show_console_window: false,
@@ -77,6 +79,7 @@ pub(crate) struct ManagedDriverProcess {
     pub log_subscribers: LogSubscribers,
     /// `None` after `Drop` has run.
     child: Option<Child>,
+    shutdown_timeout: Duration,
     /// Set when shutdown is initiated, so the stdio pump tasks can exit cleanly.
     shutdown: Arc<AtomicBool>,
     /// Handles for the stdout / stderr pump tasks (when stdio is `Tracing`).
@@ -152,19 +155,38 @@ impl ManagedDriverProcess {
         self.log_subscribers.add(f)
     }
 
-    /// Kill the driver and wait until the OS has reaped it.
+    /// Gracefully stop Chromium drivers, falling back to kill and reap.
     ///
-    /// This consumes the process after the final managed-session lease is
-    /// released. [`Drop`] remains the non-blocking fallback when explicit
-    /// asynchronous cleanup is skipped or cancelled.
+    /// Only the final session lease reaches this path. Keep the child in self
+    /// until it exits so cancellation still invokes the non-blocking Drop
+    /// fallback. Keep the pipe readers alive until then as well: closing them
+    /// early can terminate a driver on SIGPIPE during its cleanup.
     pub(crate) async fn shutdown(mut self) -> std::io::Result<()> {
-        self.shutdown.store(true, Ordering::Relaxed);
-        for handle in self.pump_handles.drain(..) {
-            handle.abort();
+        let url = format!("{}/shutdown", self.url());
+        if let Some(child) = self.child.as_mut() {
+            if matches!(self.browser, BrowserKind::Chrome | BrowserKind::Edge)
+                && !self.shutdown_timeout.is_zero()
+            {
+                let _ = tokio::time::timeout(self.shutdown_timeout, async {
+                    if let Ok(client) = reqwest::Client::builder()
+                        .no_proxy()
+                        .redirect(reqwest::redirect::Policy::none())
+                        .build()
+                    {
+                        // Some driver versions close the socket while exiting.
+                        // Even on HTTP failure, wait for exit before force-kill.
+                        let _ = client.get(url).send().await;
+                        let _ = child.wait().await;
+                    }
+                })
+                .await;
+            }
+            if child.try_wait()?.is_none() {
+                child.kill().await?;
+            }
         }
-        if let Some(mut child) = self.child.take() {
-            child.kill().await?;
-        }
+        self.child.take();
+        // Drop now stops pumps and emits DriverShutdown exactly once.
         Ok(())
     }
 }
@@ -298,6 +320,7 @@ async fn spawn_at_port(
         driver_id: ctx.driver_id,
         log_subscribers,
         child: Some(child),
+        shutdown_timeout: cfg.shutdown_timeout,
         shutdown,
         pump_handles,
         emitter: ctx.emitter.clone(),
@@ -418,5 +441,173 @@ impl Drop for ManagedDriverProcess {
             version: self.version.clone(),
             port: self.port,
         });
+    }
+}
+
+#[cfg(all(test, unix))]
+mod shutdown_tests {
+    use super::super::status::Subscription;
+    use super::*;
+    use std::sync::atomic::AtomicUsize;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::process::{ChildStdin, ChildStdout};
+
+    struct Fixture {
+        process: ManagedDriverProcess,
+        stdin: ChildStdin,
+        stdout: ChildStdout,
+        events: Arc<AtomicUsize>,
+        _subscription: Subscription,
+    }
+
+    // A controlled child stands in for the driver, exiting only after the
+    // mock HTTP server permits cleanup. No browser, network download, or
+    // timing-dependent browser profile race is needed for these tests.
+    fn fixture(port: u16, timeout: Duration) -> Fixture {
+        let mut child = Command::new("sh")
+            .args(["-c", "read line; printf cleaned"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        let stdin = child.stdin.take().unwrap();
+        let stdout = child.stdout.take().unwrap();
+        let emitter = Emitter::new();
+        let events = Arc::new(AtomicUsize::new(0));
+        let counter = Arc::clone(&events);
+        let subscription = emitter.add(move |event| {
+            if matches!(event, Status::DriverShutdown { .. }) {
+                counter.fetch_add(1, Ordering::SeqCst);
+            }
+        });
+        Fixture {
+            process: ManagedDriverProcess {
+                host: IpAddr::V4(Ipv4Addr::LOCALHOST),
+                port,
+                browser: BrowserKind::Chrome,
+                version: "fixture".into(),
+                driver_id: DriverId::from_raw(0),
+                log_subscribers: LogSubscribers::new(),
+                child: Some(child),
+                shutdown_timeout: timeout,
+                shutdown: Arc::new(AtomicBool::new(false)),
+                pump_handles: Vec::new(),
+                emitter,
+            },
+            stdin,
+            stdout,
+            events,
+            _subscription: subscription,
+        }
+    }
+
+    async fn read_output(mut stdout: ChildStdout) -> String {
+        let mut output = String::new();
+        tokio::time::timeout(Duration::from_secs(3), stdout.read_to_string(&mut output))
+            .await
+            .expect("child must exit and close stdout")
+            .unwrap();
+        output
+    }
+
+    #[tokio::test]
+    async fn shutdown_waits_for_cleanup_after_response_or_eof() {
+        for respond in [true, false] {
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let Fixture {
+                process,
+                mut stdin,
+                stdout,
+                events,
+                _subscription,
+            } = fixture(listener.local_addr().unwrap().port(), Duration::from_secs(3));
+            let shutdown_flag = Arc::clone(&process.shutdown);
+            let server = tokio::spawn(async move {
+                let (stream, _) = listener.accept().await.unwrap();
+                let mut reader = BufReader::new(stream);
+                let mut request = String::new();
+                reader.read_line(&mut request).await.unwrap();
+                assert_eq!(request, "GET /shutdown HTTP/1.1\r\n");
+                let mut stream = reader.into_inner();
+                if respond {
+                    stream
+                        .write_all(
+                            b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                        )
+                        .await
+                        .unwrap();
+                }
+                drop(stream);
+                // HTTP completion is not process cleanup completion.
+                tokio::time::sleep(Duration::from_millis(30)).await;
+                assert!(!shutdown_flag.load(Ordering::Relaxed));
+                stdin.write_all(b"exit\n").await.unwrap();
+            });
+            process.shutdown().await.unwrap();
+            server.await.unwrap();
+            assert_eq!(read_output(stdout).await, "cleaned");
+            assert_eq!(events.load(Ordering::SeqCst), 1);
+        }
+    }
+
+    #[tokio::test]
+    async fn shutdown_bounds_hanging_request_or_child_and_reaps() {
+        for respond in [false, true] {
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let Fixture {
+                process,
+                stdin,
+                stdout,
+                events,
+                _subscription,
+            } = fixture(listener.local_addr().unwrap().port(), Duration::from_millis(100));
+            let server = tokio::spawn(async move {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                if respond {
+                    stream
+                        .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
+                        .await
+                        .unwrap();
+                }
+                std::future::pending::<()>().await;
+            });
+            tokio::time::timeout(Duration::from_secs(3), process.shutdown())
+                .await
+                .expect("shutdown must be bounded")
+                .unwrap();
+            // Keep stdin alive: only force-kill, not EOF on stdin, can end child.
+            assert_eq!(read_output(stdout).await, "");
+            assert_eq!(events.load(Ordering::SeqCst), 1);
+            drop(stdin);
+            server.abort();
+        }
+    }
+
+    #[tokio::test]
+    async fn cancelled_shutdown_kills_child_and_emits_once() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let Fixture {
+            process,
+            stdin,
+            stdout,
+            events,
+            _subscription,
+        } = fixture(listener.local_addr().unwrap().port(), Duration::from_secs(30));
+        let (accepted_tx, accepted_rx) = tokio::sync::oneshot::channel();
+        let server = tokio::spawn(async move {
+            let (_stream, _) = listener.accept().await.unwrap();
+            accepted_tx.send(()).unwrap();
+            std::future::pending::<()>().await;
+        });
+        let task = tokio::spawn(process.shutdown());
+        tokio::time::timeout(Duration::from_secs(3), accepted_rx).await.unwrap().unwrap();
+        task.abort();
+        assert!(task.await.unwrap_err().is_cancelled());
+        assert_eq!(read_output(stdout).await, "");
+        assert_eq!(events.load(Ordering::SeqCst), 1);
+        drop(stdin);
+        server.abort();
     }
 }

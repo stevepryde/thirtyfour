@@ -99,6 +99,7 @@ pub(crate) struct ResolvedConfig {
     pub host: IpAddr,
     pub download_timeout: Duration,
     pub ready_timeout: Duration,
+    pub shutdown_timeout: Duration,
     pub offline: bool,
     pub mirror: Mirror,
     pub stdio: StdioMode,
@@ -121,6 +122,7 @@ impl std::fmt::Debug for ResolvedConfig {
             .field("host", &self.host)
             .field("download_timeout", &self.download_timeout)
             .field("ready_timeout", &self.ready_timeout)
+            .field("shutdown_timeout", &self.shutdown_timeout)
             .field("offline", &self.offline)
             .field("stdio", &self.stdio)
             .field("show_console_window", &self.show_console_window)
@@ -215,6 +217,7 @@ pub struct WebDriverManagerBuilder {
     pub(crate) host: Option<IpAddr>,
     pub(crate) download_timeout: Option<Duration>,
     pub(crate) ready_timeout: Option<Duration>,
+    pub(crate) shutdown_timeout: Option<Duration>,
     pub(crate) offline: Option<bool>,
     pub(crate) mirror: Option<Mirror>,
     pub(crate) stdio: Option<StdioMode>,
@@ -243,6 +246,7 @@ impl std::fmt::Debug for WebDriverManagerBuilder {
             .field("host", &self.host)
             .field("download_timeout", &self.download_timeout)
             .field("ready_timeout", &self.ready_timeout)
+            .field("shutdown_timeout", &self.shutdown_timeout)
             .field("offline", &self.offline)
             .field("stdio", &self.stdio)
             .field("show_console_window", &self.show_console_window)
@@ -263,6 +267,7 @@ impl Clone for WebDriverManagerBuilder {
             host: self.host,
             download_timeout: self.download_timeout,
             ready_timeout: self.ready_timeout,
+            shutdown_timeout: self.shutdown_timeout,
             offline: self.offline,
             mirror: self.mirror.clone(),
             stdio: self.stdio,
@@ -353,6 +358,17 @@ impl WebDriverManagerBuilder {
     /// Override the timeout for waiting on driver `/status` readiness. Default: 30s.
     pub fn ready_timeout(mut self, d: Duration) -> Self {
         self.ready_timeout = Some(d);
+        self
+    }
+
+    /// Maximum time for graceful Chrome/Edge driver shutdown after the last
+    /// session quits. Defaults to 10 seconds; zero skips graceful shutdown.
+    ///
+    /// The driver is killed if it has not exited within this budget. This does
+    /// not bound the preceding WebDriver DELETE request or OS process reaping.
+    /// Other browsers retain their force-kill shutdown behavior.
+    pub fn shutdown_timeout(mut self, timeout: Duration) -> Self {
+        self.shutdown_timeout = Some(timeout);
         self
     }
 
@@ -534,6 +550,7 @@ impl WebDriverManagerBuilder {
             host: self.host.unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST)),
             download_timeout: self.download_timeout.unwrap_or(DEFAULT_DOWNLOAD_TIMEOUT),
             ready_timeout: self.ready_timeout.unwrap_or(DEFAULT_READY_TIMEOUT),
+            shutdown_timeout: self.shutdown_timeout.unwrap_or(Duration::from_secs(10)),
             offline: self.offline.unwrap_or(false),
             mirror: self.mirror.unwrap_or_default(),
             stdio: self.stdio.unwrap_or_default(),
@@ -815,6 +832,7 @@ impl WebDriverManager {
             &SpawnConfig {
                 host: self.cfg.host,
                 ready_timeout: self.cfg.ready_timeout,
+                shutdown_timeout: self.cfg.shutdown_timeout,
                 stdio: self.cfg.stdio,
                 show_console_window: self.cfg.show_console_window,
                 args: self.cfg.driver_args.get(&browser).cloned().unwrap_or_default(),
