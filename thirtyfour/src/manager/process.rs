@@ -161,7 +161,10 @@ impl ManagedDriverProcess {
     /// until it exits so cancellation still invokes the non-blocking Drop
     /// fallback. Keep the pipe readers alive until then as well: closing them
     /// early can terminate a driver on SIGPIPE during its cleanup.
-    #[cfg(test)]
+    ///
+    /// Test-only convenience over [`Self::shutdown_with_budget`]; gated to
+    /// match `shutdown_tests`, its only caller.
+    #[cfg(all(test, unix))]
     pub(crate) async fn shutdown(self) -> std::io::Result<()> {
         let budget = self.shutdown_timeout;
         self.shutdown_with_budget(budget).await
