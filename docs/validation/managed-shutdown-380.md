@@ -86,3 +86,26 @@ of eight sessions and checks isolated TEMP for leftover `scoped_dir*` folders.
 Source references:
 - https://github.com/chromium/chromium/blob/main/chrome/test/chromedriver/commands.cc
 - https://github.com/chromium/chromium/blob/main/chrome/test/chromedriver/server/http_handler.cc
+
+### Windows controlled comparison
+
+Verbose CI diagnostics showed that the sole remaining file was
+`chrome_debug.log` (295 bytes), still present five seconds after quit. Chromium
+uses `ScopedTempDirWithRetry`, which only retries deletion for approximately one
+second. Waiting longer does not restart a failed deletion.
+
+On the same Windows runner, the default browser termination failed cleanup,
+while `goog:chromeOptions.quitGracefully=true` passed immediately (CI job
+131592892519). The option makes Chromium request `Browser.close` and wait before
+force-termination, allowing child processes to close their handles. The precise
+handle owner was not directly inspected; the successful controlled comparison
+supports using the graceful browser path, rather than deleting files ourselves.
+
+The manager now defaults this option on Windows for generated-profile Chrome
+and Edge sessions with driver versions >=136, preserving explicit caller values,
+user profiles, detached sessions and debugger attachments. The version gate is
+based on Chromium release sources: absent in 135.0.7049.41, present in
+136.0.7103.48. Older/unknown versions retain their prior option behavior.
+
+The original Windows CDP renderer-connection failure passed when rerun on the
+unchanged first commit. No broad retries or weakened assertions were introduced.

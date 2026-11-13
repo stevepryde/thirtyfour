@@ -36,6 +36,11 @@
 //! period for that wait and final process shutdown together (10 seconds by
 //! default), followed by force-kill and process reaping. Explicit user profiles,
 //! detached browsers and debugger attachments are not polled or deleted.
+//! On Windows with Chromium driver version 136 or newer, generated-profile
+//! sessions default `quitGracefully` to true so Chrome/Edge can close child
+//! processes before profile deletion. An explicit caller value is preserved.
+//! Older or unknown driver versions retain their existing browser-quit behavior;
+//! cleanup can still fail if another process retains a Windows file handle.
 //! Firefox and Safari still use force-kill after the session ends.
 //!
 //! Cancellation, session-creation failure, and dropping without explicit quit

@@ -264,6 +264,38 @@ fn chromium_profile_options(browser: BrowserKind, requested: &Capabilities) -> b
     })
 }
 
+// Chromium 136 introduced quitGracefully. On Windows, force-terminating only
+// the main Chrome process can leave descendants holding chrome_debug.log,
+// outliving ChromeDriver's finite profile-deletion retries. Let Chrome close
+// its children normally. Preserve explicit caller choices and older drivers.
+fn prefer_graceful_browser_quit(
+    browser: BrowserKind,
+    version: &str,
+    caps: &mut Capabilities,
+) -> WebDriverResult<()> {
+    if !chromium_profile_options(browser, caps)
+        || !version
+            .split('.')
+            .next()
+            .and_then(|v| v.parse::<u32>().ok())
+            .is_some_and(|major| major >= 136)
+    {
+        return Ok(());
+    }
+    let key = match browser {
+        BrowserKind::Chrome => "goog:chromeOptions",
+        BrowserKind::Edge => "ms:edgeOptions",
+        _ => return Ok(()),
+    };
+    if caps.get(key).is_none() {
+        caps.set(key, serde_json::json!({}))?;
+    }
+    if let Some(options) = caps.get_mut(key).and_then(Value::as_object_mut) {
+        options.entry("quitGracefully").or_insert(Value::Bool(true));
+    }
+    Ok(())
+}
+
 fn generated_profile(browser: BrowserKind, returned: &Capabilities) -> Option<PathBuf> {
     let vendor = match browser {
         BrowserKind::Chrome => "chrome",
@@ -712,9 +744,12 @@ impl WebDriverManager {
         self: &Arc<Self>,
         capabilities: impl Into<Capabilities>,
     ) -> WebDriverResult<WebDriver> {
-        let caps: Capabilities = capabilities.into();
+        let mut caps: Capabilities = capabilities.into();
         let driver = self.ensure_driver(&caps).await.map_err(WebDriverError::from)?;
         let browser = driver.browser;
+        if cfg!(windows) {
+            prefer_graceful_browser_quit(browser, &driver.version, &mut caps)?;
+        }
         let server_url: Url = driver
             .url()
             .parse()
@@ -941,6 +976,34 @@ impl WebDriverManager {
 
 #[cfg(test)]
 mod profile_cleanup_tests {
+    #[test]
+    fn graceful_browser_default_is_version_gated_and_preserves_caller_options() {
+        for (browser, key) in
+            [(BrowserKind::Chrome, "goog:chromeOptions"), (BrowserKind::Edge, "ms:edgeOptions")]
+        {
+            for version in ["135.0.1", "unknown"] {
+                let mut caps = Capabilities::new();
+                prefer_graceful_browser_quit(browser, version, &mut caps).unwrap();
+                assert!(caps.get(key).is_none());
+            }
+            let mut caps = Capabilities::new();
+            prefer_graceful_browser_quit(browser, "136.0.1", &mut caps).unwrap();
+            assert_eq!(caps.get(key).unwrap()["quitGracefully"], true);
+            caps.set(key, serde_json::json!({"quitGracefully": false})).unwrap();
+            prefer_graceful_browser_quit(browser, "153.0.1", &mut caps).unwrap();
+            assert_eq!(caps.get(key).unwrap()["quitGracefully"], false);
+            for options in [
+                serde_json::json!({"args": ["--user-data-dir=owned"]}),
+                serde_json::json!({"detach": true}),
+                serde_json::json!({"debuggerAddress":"localhost:1234"}),
+            ] {
+                caps.set(key, options.clone()).unwrap();
+                prefer_graceful_browser_quit(browser, "153.0.1", &mut caps).unwrap();
+                assert_eq!(caps.get(key), Some(&options));
+            }
+        }
+    }
+
     use super::*;
     use serde_json::json;
 
