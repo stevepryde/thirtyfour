@@ -99,6 +99,7 @@ pub(crate) struct ResolvedConfig {
     pub host: IpAddr,
     pub download_timeout: Duration,
     pub ready_timeout: Duration,
+    pub shutdown_timeout: Duration,
     pub offline: bool,
     pub mirror: Mirror,
     pub stdio: StdioMode,
@@ -121,6 +122,7 @@ impl std::fmt::Debug for ResolvedConfig {
             .field("host", &self.host)
             .field("download_timeout", &self.download_timeout)
             .field("ready_timeout", &self.ready_timeout)
+            .field("shutdown_timeout", &self.shutdown_timeout)
             .field("offline", &self.offline)
             .field("stdio", &self.stdio)
             .field("show_console_window", &self.show_console_window)
@@ -147,6 +149,8 @@ pub(crate) struct SessionGuard {
     emitter: Emitter,
     browser: BrowserKind,
     session_id: String,
+    cleanup_profile: Option<PathBuf>,
+    shutdown_timeout: Duration,
 }
 
 impl std::fmt::Debug for SessionGuard {
@@ -189,10 +193,20 @@ impl DriverGuard for SessionGuard {
     fn release(&self) -> Pin<Box<dyn Future<Output = WebDriverResult<()>> + Send + '_>> {
         Box::pin(async move {
             let driver = self.driver().take();
-            if let Some(driver) = driver
-                && let Some(process) = Arc::into_inner(driver)
-            {
-                process.shutdown().await.map_err(WebDriverError::from)?;
+            if let Some(driver) = driver {
+                let deadline = tokio::time::Instant::now() + self.shutdown_timeout;
+                if let Some(profile) = &self.cleanup_profile {
+                    wait_for_profile_cleanup(profile, deadline).await;
+                }
+                if let Some(process) = Arc::into_inner(driver) {
+                    // Profile cleanup and process exit share one grace budget.
+                    process
+                        .shutdown_with_budget(
+                            deadline.saturating_duration_since(tokio::time::Instant::now()),
+                        )
+                        .await
+                        .map_err(WebDriverError::from)?;
+                }
             }
             Ok(())
         })
@@ -201,6 +215,97 @@ impl DriverGuard for SessionGuard {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
+}
+
+// The DELETE reply is posted before ChromeDriver destroys the session. Keep
+// its process lease alive until the generated profile disappears; /shutdown
+// alone can stop the command thread before the session destructor finishes.
+async fn wait_for_profile_cleanup(profile: &Path, deadline: tokio::time::Instant) {
+    loop {
+        match profile.try_exists() {
+            Ok(false) => return,
+            Err(error) => {
+                tracing::warn!(%error, "unable to inspect managed Chromium profile cleanup");
+                return;
+            }
+            Ok(true) => {}
+        }
+        if tokio::time::Instant::now() >= deadline {
+            tracing::warn!("managed Chromium profile still exists at shutdown deadline");
+            return;
+        }
+        tokio::time::sleep_until(std::cmp::min(
+            deadline,
+            tokio::time::Instant::now() + Duration::from_millis(20),
+        ))
+        .await;
+    }
+}
+
+fn chromium_profile_options(browser: BrowserKind, requested: &Capabilities) -> bool {
+    let key = match browser {
+        BrowserKind::Chrome => "goog:chromeOptions",
+        BrowserKind::Edge => "ms:edgeOptions",
+        _ => return false,
+    };
+    let Some(options) = requested.get(key) else {
+        return true;
+    };
+    if options.get("detach").and_then(Value::as_bool) == Some(true)
+        || options.get("debuggerAddress").is_some()
+    {
+        return false;
+    }
+    !options.get("args").and_then(Value::as_array).is_some_and(|args| {
+        args.iter().filter_map(Value::as_str).any(|arg| {
+            let arg = arg.trim_start_matches('-');
+            arg == "user-data-dir" || arg.starts_with("user-data-dir=")
+        })
+    })
+}
+
+// Chromium 136 introduced quitGracefully. On Windows, force-terminating only
+// the main Chrome process can leave descendants holding chrome_debug.log,
+// outliving ChromeDriver's finite profile-deletion retries. Let Chrome close
+// its children normally. Preserve explicit caller choices and older drivers.
+fn prefer_graceful_browser_quit(
+    browser: BrowserKind,
+    version: &str,
+    caps: &mut Capabilities,
+) -> WebDriverResult<()> {
+    if !chromium_profile_options(browser, caps)
+        || !version
+            .split('.')
+            .next()
+            .and_then(|v| v.parse::<u32>().ok())
+            .is_some_and(|major| major >= 136)
+    {
+        return Ok(());
+    }
+    let key = match browser {
+        BrowserKind::Chrome => "goog:chromeOptions",
+        BrowserKind::Edge => "ms:edgeOptions",
+        _ => return Ok(()),
+    };
+    if caps.get(key).is_none() {
+        caps.set(key, serde_json::json!({}))?;
+    }
+    if let Some(options) = caps.get_mut(key).and_then(Value::as_object_mut) {
+        options.entry("quitGracefully").or_insert(Value::Bool(true));
+    }
+    Ok(())
+}
+
+fn generated_profile(browser: BrowserKind, returned: &Capabilities) -> Option<PathBuf> {
+    let vendor = match browser {
+        BrowserKind::Chrome => "chrome",
+        BrowserKind::Edge => "msedge",
+        _ => return None,
+    };
+    let path = PathBuf::from(returned.get(vendor)?.get("userDataDir")?.as_str()?);
+    // Never wait for user-owned directories or delete anything ourselves.
+    let name = path.file_name()?.to_str()?;
+    (name.starts_with("scoped_dir") || name.contains(".scoped_dir.")).then_some(path)
 }
 
 /// Builder for [`WebDriverManager`]. The same type is used both via
@@ -215,6 +320,7 @@ pub struct WebDriverManagerBuilder {
     pub(crate) host: Option<IpAddr>,
     pub(crate) download_timeout: Option<Duration>,
     pub(crate) ready_timeout: Option<Duration>,
+    pub(crate) shutdown_timeout: Option<Duration>,
     pub(crate) offline: Option<bool>,
     pub(crate) mirror: Option<Mirror>,
     pub(crate) stdio: Option<StdioMode>,
@@ -243,6 +349,7 @@ impl std::fmt::Debug for WebDriverManagerBuilder {
             .field("host", &self.host)
             .field("download_timeout", &self.download_timeout)
             .field("ready_timeout", &self.ready_timeout)
+            .field("shutdown_timeout", &self.shutdown_timeout)
             .field("offline", &self.offline)
             .field("stdio", &self.stdio)
             .field("show_console_window", &self.show_console_window)
@@ -263,6 +370,7 @@ impl Clone for WebDriverManagerBuilder {
             host: self.host,
             download_timeout: self.download_timeout,
             ready_timeout: self.ready_timeout,
+            shutdown_timeout: self.shutdown_timeout,
             offline: self.offline,
             mirror: self.mirror.clone(),
             stdio: self.stdio,
@@ -353,6 +461,18 @@ impl WebDriverManagerBuilder {
     /// Override the timeout for waiting on driver `/status` readiness. Default: 30s.
     pub fn ready_timeout(mut self, d: Duration) -> Self {
         self.ready_timeout = Some(d);
+        self
+    }
+
+    /// Grace budget for generated Chrome/Edge profile cleanup after each
+    /// successful session quit, plus process shutdown for the last session.
+    /// Defaults to 10 seconds; zero skips the cleanup wait and graceful shutdown.
+    ///
+    /// The driver is killed if it has not exited within this budget. This does
+    /// not bound the preceding WebDriver DELETE request or OS process reaping.
+    /// Other browsers retain their force-kill shutdown behavior.
+    pub fn shutdown_timeout(mut self, timeout: Duration) -> Self {
+        self.shutdown_timeout = Some(timeout);
         self
     }
 
@@ -534,6 +654,7 @@ impl WebDriverManagerBuilder {
             host: self.host.unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST)),
             download_timeout: self.download_timeout.unwrap_or(DEFAULT_DOWNLOAD_TIMEOUT),
             ready_timeout: self.ready_timeout.unwrap_or(DEFAULT_READY_TIMEOUT),
+            shutdown_timeout: self.shutdown_timeout.unwrap_or(Duration::from_secs(10)),
             offline: self.offline.unwrap_or(false),
             mirror: self.mirror.unwrap_or_default(),
             stdio: self.stdio.unwrap_or_default(),
@@ -623,9 +744,12 @@ impl WebDriverManager {
         self: &Arc<Self>,
         capabilities: impl Into<Capabilities>,
     ) -> WebDriverResult<WebDriver> {
-        let caps: Capabilities = capabilities.into();
+        let mut caps: Capabilities = capabilities.into();
         let driver = self.ensure_driver(&caps).await.map_err(WebDriverError::from)?;
         let browser = driver.browser;
+        if cfg!(windows) {
+            prefer_graceful_browser_quit(browser, &driver.version, &mut caps)?;
+        }
         let server_url: Url = driver
             .url()
             .parse()
@@ -638,7 +762,10 @@ impl WebDriverManager {
             browser,
             url: server_url.to_string(),
         });
+        let wait_for_profile = chromium_profile_options(browser, &caps);
         let started = start_session(client_arc.as_ref(), &server_url, &config, caps).await?;
+        let cleanup_profile =
+            wait_for_profile.then(|| generated_profile(browser, &started.capabilities)).flatten();
         let session_id = started.session_id.clone();
         self.emitter.emit(Status::SessionStarted {
             browser,
@@ -650,6 +777,8 @@ impl WebDriverManager {
             emitter: self.emitter.clone(),
             browser,
             session_id: session_id.to_string(),
+            cleanup_profile,
+            shutdown_timeout: self.cfg.shutdown_timeout,
         });
         let handle = SessionHandle::new_with_config_guard_and_caps(
             client_arc,
@@ -815,6 +944,7 @@ impl WebDriverManager {
             &SpawnConfig {
                 host: self.cfg.host,
                 ready_timeout: self.cfg.ready_timeout,
+                shutdown_timeout: self.cfg.shutdown_timeout,
                 stdio: self.cfg.stdio,
                 show_console_window: self.cfg.show_console_window,
                 args: self.cfg.driver_args.get(&browser).cloned().unwrap_or_default(),
@@ -841,5 +971,150 @@ impl WebDriverManager {
         }
         map.insert(key, Arc::downgrade(&arc));
         Ok(arc)
+    }
+}
+
+#[cfg(test)]
+mod profile_cleanup_tests {
+    #[test]
+    fn graceful_browser_default_is_version_gated_and_preserves_caller_options() {
+        for (browser, key) in
+            [(BrowserKind::Chrome, "goog:chromeOptions"), (BrowserKind::Edge, "ms:edgeOptions")]
+        {
+            for version in ["135.0.1", "unknown"] {
+                let mut caps = Capabilities::new();
+                prefer_graceful_browser_quit(browser, version, &mut caps).unwrap();
+                assert!(caps.get(key).is_none());
+            }
+            let mut caps = Capabilities::new();
+            prefer_graceful_browser_quit(browser, "136.0.1", &mut caps).unwrap();
+            assert_eq!(caps.get(key).unwrap()["quitGracefully"], true);
+            caps.set(key, serde_json::json!({"quitGracefully": false})).unwrap();
+            prefer_graceful_browser_quit(browser, "153.0.1", &mut caps).unwrap();
+            assert_eq!(caps.get(key).unwrap()["quitGracefully"], false);
+            for options in [
+                serde_json::json!({"args": ["--user-data-dir=owned"]}),
+                serde_json::json!({"detach": true}),
+                serde_json::json!({"debuggerAddress":"localhost:1234"}),
+            ] {
+                caps.set(key, options.clone()).unwrap();
+                prefer_graceful_browser_quit(browser, "153.0.1", &mut caps).unwrap();
+                assert_eq!(caps.get(key), Some(&options));
+            }
+        }
+    }
+
+    use super::*;
+    use serde_json::json;
+
+    fn caps(value: Value) -> Capabilities {
+        serde_json::from_value(value).unwrap()
+    }
+
+    #[test]
+    fn only_owned_chromium_profiles_are_eligible() {
+        for (browser, key) in
+            [(BrowserKind::Chrome, "goog:chromeOptions"), (BrowserKind::Edge, "ms:edgeOptions")]
+        {
+            assert!(chromium_profile_options(browser, &Capabilities::new()));
+            assert!(chromium_profile_options(
+                browser,
+                &caps(json!({key: {"detach": false, "args": ["--headless"]}}))
+            ));
+            for options in [
+                json!({"detach": true}),
+                json!({"debuggerAddress": "127.0.0.1:9222"}),
+                json!({"args": ["--user-data-dir=/some/profile"]}),
+                json!({"args": ["--user-data-dir", "/some/profile"]}),
+                json!({"args": ["user-data-dir=/some/profile"]}),
+                json!({"args": ["--user-data-dir="]}),
+            ] {
+                assert!(
+                    !chromium_profile_options(browser, &caps(json!({key: options}))),
+                    "must exclude {options}"
+                );
+            }
+        }
+        assert!(!chromium_profile_options(BrowserKind::Firefox, &Capabilities::new()));
+        assert!(!chromium_profile_options(BrowserKind::Safari, &Capabilities::new()));
+    }
+
+    #[test]
+    fn generated_profile_requires_matching_vendor_and_temporary_name() {
+        let root = tempfile::tempdir().unwrap();
+        for (browser, vendor) in [(BrowserKind::Chrome, "chrome"), (BrowserKind::Edge, "msedge")] {
+            for name in [
+                "scoped_dir123_456",
+                "com.google.Chrome.scoped_dir.ABCDEF",
+                ".org.chromium.Chromium.scoped_dir.ABCDEF",
+            ] {
+                let path = root.path().join(name);
+                assert_eq!(
+                    generated_profile(browser, &caps(json!({vendor: {"userDataDir": path}}))),
+                    Some(path)
+                );
+            }
+            for invalid in
+                [json!(""), json!(root.path().join("my-profile")), json!(42), Value::Null]
+            {
+                assert_eq!(
+                    generated_profile(browser, &caps(json!({vendor: {"userDataDir": invalid}}))),
+                    None
+                );
+            }
+            assert_eq!(generated_profile(browser, &Capabilities::new()), None);
+            assert_eq!(generated_profile(browser, &caps(json!({vendor: {}}))), None);
+        }
+        let chrome = caps(json!({"chrome": {"userDataDir": root.path().join("scoped_dir123")}}));
+        assert_eq!(generated_profile(BrowserKind::Edge, &chrome), None);
+        assert_eq!(generated_profile(BrowserKind::Firefox, &chrome), None);
+        assert_eq!(generated_profile(BrowserKind::Safari, &chrome), None);
+    }
+
+    #[tokio::test]
+    async fn waits_for_profile_to_disappear_without_removing_it() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("scoped_dir123");
+        std::fs::create_dir(&path).unwrap();
+        let wait =
+            wait_for_profile_cleanup(&path, tokio::time::Instant::now() + Duration::from_secs(3));
+        tokio::pin!(wait);
+        // Poll once to prove it waits while the profile is present, rather
+        // than relying on scheduler timing or simply asserting eventual exit.
+        let pending =
+            std::future::poll_fn(|cx| std::task::Poll::Ready(wait.as_mut().poll(cx).is_pending()))
+                .await;
+        assert!(pending);
+        assert!(path.exists(), "the waiter must never remove a profile");
+        std::fs::remove_dir(&path).unwrap(); // Stand in for ChromeDriver cleanup.
+        tokio::time::timeout(Duration::from_secs(1), wait).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn deadline_preserves_existing_profile_and_absent_profile_returns() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("scoped_dir123");
+        std::fs::create_dir(&path).unwrap();
+        for budget in [Duration::ZERO, Duration::from_millis(40)] {
+            let started = tokio::time::Instant::now();
+            tokio::time::timeout(
+                Duration::from_secs(1),
+                wait_for_profile_cleanup(&path, started + budget),
+            )
+            .await
+            .unwrap();
+            assert!(started.elapsed() >= budget);
+            assert!(path.exists(), "timeout must not delete the profile");
+        }
+        let absent = root.path().join("absent");
+        tokio::time::timeout(
+            Duration::from_millis(100),
+            wait_for_profile_cleanup(
+                &absent,
+                tokio::time::Instant::now() + Duration::from_secs(30),
+            ),
+        )
+        .await
+        .unwrap();
     }
 }

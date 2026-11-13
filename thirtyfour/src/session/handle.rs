@@ -1386,6 +1386,70 @@ mod tests {
         }
     }
 
+    #[derive(Debug, Default)]
+    struct CountingGuard(std::sync::atomic::AtomicUsize);
+
+    impl DriverGuard for CountingGuard {
+        fn release(
+            &self,
+        ) -> std::pin::Pin<Box<dyn Future<Output = WebDriverResult<()>> + Send + '_>> {
+            Box::pin(async {
+                self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                Ok(())
+            })
+        }
+    }
+
+    struct FailingDelete;
+
+    #[async_trait::async_trait]
+    impl HttpClient for FailingDelete {
+        async fn send(&self, _: Request<Body<'_>>) -> WebDriverResult<Response<Bytes>> {
+            Err(WebDriverError::FatalError("DELETE failed".into()))
+        }
+        async fn new(&self) -> Arc<dyn HttpClient> {
+            Arc::new(Self)
+        }
+    }
+
+    #[tokio::test]
+    async fn failed_delete_keeps_guard_for_retry() {
+        let guard = Arc::new(CountingGuard::default());
+        let handle = SessionHandle::new_with_config_guard_and_caps(
+            Arc::new(FailingDelete),
+            "http://localhost:4444",
+            SessionId::from("failed-delete"),
+            WebDriverConfig::default(),
+            Some(guard.clone()),
+            Capabilities::new(),
+        )
+        .unwrap();
+        for _ in 0..2 {
+            assert!(handle.quit().await.unwrap_err().to_string().contains("DELETE failed"));
+            assert!(!handle.quit.initialized());
+            assert_eq!(guard.0.load(std::sync::atomic::Ordering::SeqCst), 0);
+        }
+        handle.leak().unwrap(); // Avoid synchronous teardown in this mock test.
+    }
+
+    #[test]
+    fn leak_skips_delete_and_async_guard_release() {
+        let guard = Arc::new(CountingGuard::default());
+        let handle = SessionHandle::new_with_config_guard_and_caps(
+            Arc::new(UnusedClient),
+            "http://localhost:4444",
+            SessionId::from("leaked-session"),
+            WebDriverConfig::default(),
+            Some(guard.clone()),
+            Capabilities::new(),
+        )
+        .unwrap();
+        handle.leak().unwrap();
+        drop(handle);
+        assert_eq!(guard.0.load(std::sync::atomic::Ordering::SeqCst), 0);
+        assert_eq!(Arc::strong_count(&guard), 1, "leak does not retain the managed lease");
+    }
+
     #[test]
     fn config_updates_are_shared_by_driver_clones() {
         let driver = test_driver();

@@ -25,6 +25,30 @@
 //! # Ok(()) }
 //! ```
 //!
+//! # Shutdown and temporary profiles
+//!
+//! Call [`WebDriver::quit`](crate::WebDriver::quit) explicitly. After the last
+//! managed session successfully quits, Chrome and Edge drivers are asked to
+//! shut down gracefully so they can delete temporary profiles and extension
+//! directories. Each successful quit first waits for its generated profile to
+//! disappear while retaining the process lease, since the DELETE reply can
+//! precede session destruction. [`WebDriverManagerBuilder::shutdown_timeout`](crate::manager::WebDriverManagerBuilder::shutdown_timeout) bounds the grace
+//! period for that wait and final process shutdown together (10 seconds by
+//! default), followed by force-kill and process reaping. Explicit user profiles,
+//! detached browsers and debugger attachments are not polled or deleted.
+//! On Windows with Chromium driver version 136 or newer, generated-profile
+//! sessions default `quitGracefully` to true so Chrome/Edge can close child
+//! processes before profile deletion. An explicit caller value is preserved.
+//! Older or unknown driver versions retain their existing browser-quit behavior;
+//! cleanup can still fail if another process retains a Windows file handle.
+//! Firefox and Safari still use force-kill after the session ends.
+//!
+//! Cancellation, session-creation failure, and dropping without explicit quit
+//! can still reach the synchronous force-kill fallback and leave temporary
+//! files. A failed DELETE request is returned to the caller without releasing
+//! the process lease, permitting retry. `leak()` skips session cleanup but does
+//! not detach a managed subprocess: it still dies when its last lease drops.
+//!
 //! [`WebDriver::managed`]: crate::WebDriver::managed
 //! [`WebDriverManager`]: crate::manager::WebDriverManager
 
