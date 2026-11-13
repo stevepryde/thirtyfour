@@ -4,9 +4,16 @@ use std::{path::PathBuf, time::Duration};
 use thirtyfour::prelude::*;
 
 async fn session() -> WebDriverResult<(WebDriver, PathBuf)> {
+    session_with_graceful_browser(false).await
+}
+
+async fn session_with_graceful_browser(graceful: bool) -> WebDriverResult<(WebDriver, PathBuf)> {
     let mut caps = DesiredCapabilities::chrome();
     caps.set_headless()?;
     caps.set_no_sandbox()?;
+    if graceful {
+        caps.add_experimental_option("quitGracefully", true)?;
+    }
     let builder = WebDriver::managed(caps);
     let driver = if std::env::var_os("THIRTYFOUR_CLEANUP_DIAGNOSTICS").is_some() {
         builder
@@ -107,5 +114,14 @@ async fn managed_quit_removes_firefox_profile() -> WebDriverResult<()> {
     assert!(profile.exists());
     driver.quit().await?;
     assert!(!profile.exists(), "Firefox profile remains: {}", profile.display());
+    Ok(())
+}
+
+#[tokio::test]
+async fn managed_graceful_browser_quit_removes_profile() -> WebDriverResult<()> {
+    let (driver, profile) = session_with_graceful_browser(true).await?;
+    assert!(profile.exists());
+    driver.quit().await?;
+    assert!(!profile.exists(), "profile remains with quitGracefully: {}", profile.display());
     Ok(())
 }
