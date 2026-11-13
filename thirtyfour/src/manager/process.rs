@@ -161,13 +161,19 @@ impl ManagedDriverProcess {
     /// until it exits so cancellation still invokes the non-blocking Drop
     /// fallback. Keep the pipe readers alive until then as well: closing them
     /// early can terminate a driver on SIGPIPE during its cleanup.
-    pub(crate) async fn shutdown(mut self) -> std::io::Result<()> {
+    #[cfg(test)]
+    pub(crate) async fn shutdown(self) -> std::io::Result<()> {
+        let budget = self.shutdown_timeout;
+        self.shutdown_with_budget(budget).await
+    }
+
+    pub(crate) async fn shutdown_with_budget(mut self, budget: Duration) -> std::io::Result<()> {
+        let budget = budget.min(self.shutdown_timeout);
         let url = format!("{}/shutdown", self.url());
         if let Some(child) = self.child.as_mut() {
-            if matches!(self.browser, BrowserKind::Chrome | BrowserKind::Edge)
-                && !self.shutdown_timeout.is_zero()
+            if matches!(self.browser, BrowserKind::Chrome | BrowserKind::Edge) && !budget.is_zero()
             {
-                let _ = tokio::time::timeout(self.shutdown_timeout, async {
+                let _ = tokio::time::timeout(budget, async {
                     if let Ok(client) = reqwest::Client::builder()
                         .no_proxy()
                         .redirect(reqwest::redirect::Policy::none())

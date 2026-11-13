@@ -82,3 +82,17 @@ jobs:
         with:
           command: test
           args: -p thirtyfour --features manager-tests --test managed_cleanup -- --test-threads=1
+      - name: Windows Chromium cleanup stress regression
+        if: matrix.os == 'windows-latest' && matrix.browser == 'chrome'
+        shell: pwsh
+        run: |
+          $env:TMP = Join-Path $env:RUNNER_TEMP 'thirtyfour-cleanup'
+          New-Item -ItemType Directory -Force -Path $env:TMP | Out-Null
+          $env:TEMP = $env:TMP
+          cargo test -p thirtyfour --features manager-tests --test managed_cleanup managed_cleanup_stress -- --ignored --nocapture
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $leftovers = @(Get-ChildItem $env:TMP -Directory -Filter 'scoped_dir*')
+          if ($leftovers.Count -ne 0) {
+            $leftovers | Format-Table Name
+            throw "$($leftovers.Count) ChromeDriver temporary directories remain"
+          }

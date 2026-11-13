@@ -66,3 +66,23 @@ The stress and Firefox tests are opt-in; normal CI runs the Chrome profile
 regression. Normal explicit-quit shutdown grace is capped at 10 seconds and can
 be configured using `shutdown_timeout`. That budget does not include the
 preceding DELETE request or operating-system process reaping.
+
+## Windows CI follow-up
+
+The first Windows cleanup regression failed on a remaining `scoped_dir` after
+successful quit, even though Linux and macOS passed. It was not dismissed as a
+flake. Chromium's `commands.cc` posts the command response before
+`Session::Terminate()`, and `server/http_handler.cc` calls the main quit callback
+after the `/shutdown` response. Process exit alone therefore does not establish
+that the just-deleted session completed its destructor on Windows.
+
+The updated fix retains each session's process lease while waiting for its
+reported, generated profile to disappear, before the final lease requests
+shutdown. Profile waiting and final shutdown share a single grace deadline.
+Explicit user-data-dir, detached browsers and debugger attachments are excluded.
+No files are deleted by the library. Windows CI now additionally runs 20 batches
+of eight sessions and checks isolated TEMP for leftover `scoped_dir*` folders.
+
+Source references:
+- https://github.com/chromium/chromium/blob/main/chrome/test/chromedriver/commands.cc
+- https://github.com/chromium/chromium/blob/main/chrome/test/chromedriver/server/http_handler.cc
