@@ -196,7 +196,8 @@ impl DriverGuard for SessionGuard {
             if let Some(driver) = driver {
                 let deadline = tokio::time::Instant::now() + self.shutdown_timeout;
                 if let Some(profile) = &self.cleanup_profile {
-                    wait_for_profile_cleanup(profile, deadline).await;
+                    wait_for_chromium_cleanup(profile, &driver.url(), &self.session_id, deadline)
+                        .await;
                 }
                 if let Some(process) = Arc::into_inner(driver) {
                     // Profile cleanup and process exit share one grace budget.
@@ -217,9 +218,57 @@ impl DriverGuard for SessionGuard {
     }
 }
 
-// The DELETE reply is posted before ChromeDriver destroys the session. Keep
-// its process lease alive until the generated profile disappears; /shutdown
-// alone can stop the command thread before the session destructor finishes.
+// A session-scoped command is a Chromium-specific cleanup barrier: it is
+// dispatched on the same session thread, behind DELETE and Session::Terminate.
+// If the command-thread map entry has already been removed, destroying its
+// SessionThreadInfo joins that thread first. Either route's invalid-session
+// response therefore follows the session destructor, including its finite
+// profile-deletion attempts. /status is NOT such a barrier.
+//
+// This observes completion; it cannot make ChromeDriver retry failed deletion.
+// Retain profile polling as a fallback for unsupported/unexpected responses.
+async fn wait_for_chromium_cleanup(
+    profile: &Path,
+    driver_url: &str,
+    session_id: &str,
+    deadline: tokio::time::Instant,
+) {
+    if !matches!(profile.try_exists(), Ok(true)) || tokio::time::Instant::now() >= deadline {
+        return;
+    }
+    let barrier = async {
+        let client = reqwest::Client::builder()
+            .no_proxy()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .ok()?;
+        let mut url = Url::parse(driver_url).ok()?;
+        url.path_segments_mut().ok()?.extend(["session", session_id, "url"]);
+        let response = client.get(url).send().await.ok()?;
+        if response.status() != reqwest::StatusCode::NOT_FOUND {
+            return None;
+        }
+        let body: Value = response.json().await.ok()?;
+        (body.pointer("/value/error").and_then(Value::as_str) == Some("invalid session id"))
+            .then_some(())
+    };
+    let confirmed = tokio::select! {
+        _ = wait_for_profile_cleanup(profile, deadline) => return,
+        result = tokio::time::timeout_at(deadline, barrier) => matches!(result, Ok(Some(()))),
+    };
+    if confirmed {
+        if matches!(profile.try_exists(), Ok(true)) {
+            tracing::warn!(
+                "managed Chromium session cleanup completed but its profile remains; files left untouched"
+            );
+        }
+    } else {
+        wait_for_profile_cleanup(profile, deadline).await;
+    }
+}
+
+// Conservative fallback when the session-thread barrier cannot be confirmed.
+// The DELETE reply alone is insufficient: it precedes session destruction.
 async fn wait_for_profile_cleanup(profile: &Path, deadline: tokio::time::Instant) {
     loop {
         match profile.try_exists() {
@@ -466,7 +515,8 @@ impl WebDriverManagerBuilder {
 
     /// Grace budget for generated Chrome/Edge profile cleanup after each
     /// successful session quit, plus process shutdown for the last session.
-    /// Defaults to 10 seconds; zero skips the cleanup wait and graceful shutdown.
+    /// Defaults to 10 seconds; successful cleanup coordination returns early, even
+    /// if the driver left files behind. Zero skips the cleanup wait and graceful shutdown.
     ///
     /// The driver is killed if it has not exited within this budget. This does
     /// not bound the preceding WebDriver DELETE request or OS process reaping.
@@ -1069,6 +1119,127 @@ mod profile_cleanup_tests {
         assert_eq!(generated_profile(BrowserKind::Edge, &chrome), None);
         assert_eq!(generated_profile(BrowserKind::Firefox, &chrome), None);
         assert_eq!(generated_profile(BrowserKind::Safari, &chrome), None);
+    }
+
+    #[tokio::test]
+    async fn absent_profile_and_zero_budget_do_not_probe_the_driver() {
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+        let server = MockServer::start().await;
+        Mock::given(wiremock::matchers::method("GET"))
+            .respond_with(ResponseTemplate::new(500))
+            .expect(0)
+            .mount(&server)
+            .await;
+        let root = tempfile::tempdir().unwrap();
+        wait_for_chromium_cleanup(
+            &root.path().join("absent"),
+            &server.uri(),
+            "ended",
+            tokio::time::Instant::now() + Duration::from_secs(10),
+        )
+        .await;
+        wait_for_chromium_cleanup(root.path(), &server.uri(), "ended", tokio::time::Instant::now())
+            .await;
+        assert!(root.path().exists());
+    }
+
+    #[tokio::test]
+    async fn session_barrier_waits_for_response_but_preserves_residual_profile() {
+        use wiremock::{
+            Mock, MockServer, ResponseTemplate,
+            matchers::{method, path},
+        };
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/session/ended/url"))
+            .respond_with(
+                ResponseTemplate::new(404)
+                    .set_body_json(json!({"value": {"error": "invalid session id"}}))
+                    .set_delay(Duration::from_millis(80)),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+        let root = tempfile::tempdir().unwrap();
+        let profile = root.path().join("scoped_dir123");
+        std::fs::create_dir(&profile).unwrap();
+        std::fs::write(profile.join("chrome_debug.log"), "still held externally").unwrap();
+        let started = tokio::time::Instant::now();
+        tokio::time::timeout(
+            Duration::from_secs(2),
+            wait_for_chromium_cleanup(
+                &profile,
+                &server.uri(),
+                "ended",
+                started + Duration::from_secs(10),
+            ),
+        )
+        .await
+        .unwrap();
+        assert!(started.elapsed() >= Duration::from_millis(80));
+        assert_eq!(
+            std::fs::read_to_string(profile.join("chrome_debug.log")).unwrap(),
+            "still held externally"
+        );
+    }
+
+    #[tokio::test]
+    async fn unconfirmed_barriers_fall_back_to_bounded_profile_wait() {
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+        for (status, error, delay) in [
+            (200, "invalid session id", Duration::ZERO),
+            (404, "unknown command", Duration::ZERO),
+            (500, "unknown error", Duration::ZERO),
+            (404, "invalid session id", Duration::from_secs(3)),
+        ] {
+            let server = MockServer::start().await;
+            Mock::given(wiremock::matchers::method("GET"))
+                .respond_with(
+                    ResponseTemplate::new(status)
+                        .set_body_json(json!({"value": {"error": error}}))
+                        .set_delay(delay),
+                )
+                .mount(&server)
+                .await;
+            let profile = tempfile::tempdir().unwrap();
+            let started = tokio::time::Instant::now();
+            let budget = Duration::from_millis(100);
+            tokio::time::timeout(
+                Duration::from_secs(1),
+                wait_for_chromium_cleanup(profile.path(), &server.uri(), "ended", started + budget),
+            )
+            .await
+            .unwrap();
+            assert!(started.elapsed() >= budget);
+            assert!(profile.path().exists());
+        }
+    }
+
+    #[tokio::test]
+    async fn profile_disappearance_wins_over_stalled_barrier() {
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+        let server = MockServer::start().await;
+        Mock::given(wiremock::matchers::method("GET"))
+            .respond_with(ResponseTemplate::new(404).set_delay(Duration::from_secs(30)))
+            .mount(&server)
+            .await;
+        let root = tempfile::tempdir().unwrap();
+        let profile = root.path().join("scoped_dir123");
+        std::fs::create_dir(&profile).unwrap();
+        let url = server.uri();
+        let wait = wait_for_chromium_cleanup(
+            &profile,
+            &url,
+            "ended",
+            tokio::time::Instant::now() + Duration::from_secs(10),
+        );
+        tokio::pin!(wait);
+        assert!(
+            std::future::poll_fn(|cx| std::task::Poll::Ready(wait.as_mut().poll(cx).is_pending()))
+                .await
+        );
+        std::fs::remove_dir(&profile).unwrap(); // Simulate driver-owned cleanup.
+        tokio::time::timeout(Duration::from_secs(1), wait).await.unwrap();
     }
 
     #[tokio::test]
