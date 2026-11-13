@@ -22,13 +22,25 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Install latest mdbook
+      - name: Install mdbook
+        env:
+          # Pin the release and checksum together: deployments must not depend on
+          # the unauthenticated GitHub "latest release" API or change implicitly.
+          MDBOOK_VERSION: v0.5.4
+          MDBOOK_SHA256: 3f28de05dafca9d0f2eab99c662116b0e37b89b1d96a08f8f430b9eeae958cd7
+        shell: bash
         run: |
-          tag=$(curl 'https://api.github.com/repos/rust-lang/mdbook/releases/latest' | jq -r '.tag_name')
-          url="https://github.com/rust-lang/mdbook/releases/download/${tag}/mdbook-${tag}-x86_64-unknown-linux-gnu.tar.gz"
-          mkdir mdbook
-          curl -sSL $url | tar -xz --directory=./mdbook
-          echo `pwd`/mdbook >> $GITHUB_PATH
+          set -euo pipefail
+          url="https://github.com/rust-lang/mdbook/releases/download/${MDBOOK_VERSION}/mdbook-${MDBOOK_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+          install_dir="${RUNNER_TEMP}/mdbook"
+          archive="${RUNNER_TEMP}/mdbook.tar.gz"
+          mkdir -p "$install_dir"
+          curl --fail --show-error --silent --location --retry 3 \
+            --connect-timeout 15 --max-time 120 "$url" --output "$archive"
+          echo "${MDBOOK_SHA256}  ${archive}" | sha256sum --check --strict
+          tar -xzf "$archive" --directory="$install_dir"
+          "$install_dir/mdbook" --version
+          echo "$install_dir" >> "$GITHUB_PATH"
       - name: Replace crate version
         run: |
           THIRTYFOUR_VERSION=$(cargo metadata --no-deps --format-version 1 \
