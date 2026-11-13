@@ -7,7 +7,15 @@ async fn session() -> WebDriverResult<(WebDriver, PathBuf)> {
     let mut caps = DesiredCapabilities::chrome();
     caps.set_headless()?;
     caps.set_no_sandbox()?;
-    let driver = WebDriver::managed(caps).await?;
+    let builder = WebDriver::managed(caps);
+    let driver = if std::env::var_os("THIRTYFOUR_CLEANUP_DIAGNOSTICS").is_some() {
+        builder
+            .driver_arg(thirtyfour::manager::BrowserKind::Chrome, "--verbose")
+            .on_driver_log(|line| eprintln!("driver: {}", line.line))
+            .await?
+    } else {
+        builder.await?
+    };
     let profile = PathBuf::from(
         driver.capabilities().get("chrome").unwrap()["userDataDir"]
             .as_str()
@@ -21,7 +29,32 @@ async fn managed_quit_removes_chrome_profile() -> WebDriverResult<()> {
     let (driver, profile) = session().await?;
     assert!(profile.exists());
     driver.quit().await?;
-    assert!(!profile.exists(), "profile remains after quit: {}", profile.display());
+    if profile.exists() {
+        fn inventory(path: &std::path::Path, depth: usize) {
+            if depth > 3 {
+                return;
+            }
+            if let Ok(entries) = std::fs::read_dir(path) {
+                for entry in entries.flatten().take(80) {
+                    eprintln!(
+                        "leftover: {} {:?}",
+                        entry.path().display(),
+                        entry.metadata().map(|m| m.len())
+                    );
+                    if entry.file_type().is_ok_and(|t| t.is_dir()) {
+                        inventory(&entry.path(), depth + 1);
+                    }
+                }
+            }
+        }
+        inventory(&profile, 0);
+        tokio::time::sleep(Duration::from_secs(5)).await;
+        panic!(
+            "profile remained immediately after quit: {}; exists five seconds later: {}",
+            profile.display(),
+            profile.exists()
+        );
+    }
     Ok(())
 }
 

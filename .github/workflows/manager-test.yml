@@ -77,6 +77,8 @@ jobs:
           args: -p thirtyfour --features manager-tests --test managed -- --test-threads=1 ${{ matrix.browser }}
 
       - name: Chromium temporary-profile cleanup regression
+        env:
+          THIRTYFOUR_CLEANUP_DIAGNOSTICS: "1"
         if: matrix.browser == 'chrome'
         uses: actions-rs/cargo@v1
         with:
