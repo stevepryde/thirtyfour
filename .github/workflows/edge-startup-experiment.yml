@@ -1,0 +1,64 @@
+name: Edge startup experiment
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/edge-startup-experiment.yml'
+      - 'scripts/edge-startup-preflight.py'
+permissions:
+  contents: read
+jobs:
+  experiment:
+    name: Edge ${{ matrix.mode }} sample ${{ matrix.sample }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [cold, warm]
+        sample: [1, 2]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Record environment and prepare matching standalone driver (both arms)
+        shell: bash
+        run: |
+          mkdir -p diagnostics standalone-driver
+          {
+            date -u
+            uname -a
+            cat /etc/os-release
+            echo "Runner image: $ImageOS $ImageVersion"
+            microsoft-edge --version
+            rustc --version
+            df -h /dev/shm
+            free -m
+          } | tee diagnostics/environment.txt
+          version=$(microsoft-edge --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+')
+          curl --fail --location --retry 2 "https://msedgedriver.microsoft.com/$version/edgedriver_linux64.zip" -o standalone-driver/driver.zip
+          unzip -q standalone-driver/driver.zip -d standalone-driver
+          chmod +x standalone-driver/msedgedriver
+          standalone-driver/msedgedriver --version | tee diagnostics/preflight-driver-version.txt
+      - name: Compile unchanged managed smoke test (both arms)
+        run: cargo test -p thirtyfour --features manager-tests --test managed --no-run
+      - name: Warm Edge through separate EdgeDriver session
+        if: matrix.mode == 'warm'
+        id: warmup
+        continue-on-error: true
+        run: python3 scripts/edge-startup-preflight.py "$PWD/standalone-driver/msedgedriver" diagnostics
+      - name: Run unchanged managed smoke test once (no retry)
+        shell: bash
+        run: |
+          set -o pipefail
+          /usr/bin/time -v cargo test -p thirtyfour --features manager-tests --test managed -- --exact managed_edge_smoke --test-threads=1 --nocapture 2>&1 | tee diagnostics/managed-test.log
+      - name: Record downloaded managed driver versions
+        if: always()
+        shell: bash
+        run: |
+          find "$HOME/.cache" -type f -name msedgedriver -print -exec '{}' --version \; 2>/dev/null | tee diagnostics/managed-driver-versions.txt
+          echo 'Warm-up outcome: ${{ steps.warmup.outcome }}' | tee diagnostics/warmup-outcome.txt
+      - name: Preserve experiment evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: edge-${{ matrix.mode }}-${{ matrix.sample }}
+          path: diagnostics
