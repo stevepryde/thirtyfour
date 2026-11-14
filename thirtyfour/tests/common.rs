@@ -1,15 +1,12 @@
 #![allow(dead_code)]
 
 use std::{
-    future::Future,
     net::SocketAddr,
     sync::{Arc, OnceLock},
     thread::JoinHandle,
-    time::Duration,
 };
 
 use rstest::fixture;
-use thirtyfour::error::WebDriverErrorInner;
 use thirtyfour::manager::WebDriverManager;
 use thirtyfour::prelude::*;
 use thirtyfour::support::block_on;
@@ -113,7 +110,7 @@ fn manager_for(browser: &str) -> &'static Arc<WebDriverManager> {
     };
     cell.get_or_init(|| {
         let builder = WebDriverManager::builder();
-        let builder = if browser == "chrome" && macos_github_actions() {
+        let builder = if browser == "chrome" && github_actions() {
             builder.on_driver_log(|line| {
                 eprintln!("ChromeDriver {} {}: {}", line.driver_id, line.stream, line.line);
             })
@@ -124,8 +121,8 @@ fn manager_for(browser: &str) -> &'static Arc<WebDriverManager> {
     })
 }
 
-fn macos_github_actions() -> bool {
-    cfg!(target_os = "macos") && std::env::var("GITHUB_ACTIONS").as_deref() == Ok("true")
+fn github_actions() -> bool {
+    std::env::var("GITHUB_ACTIONS").as_deref() == Ok("true")
 }
 
 /// Launch the specified browser via the shared per-binary [`WebDriverManager`].
@@ -147,32 +144,7 @@ pub async fn launch_browser(browser: &str) -> WebDriver {
 /// through one manager instead of constructing a fresh one each call.
 pub async fn launch_managed_chrome(caps: ChromeCapabilities) -> WebDriverResult<WebDriver> {
     let mgr = manager_for("chrome");
-    retry_chrome_startup(|| mgr.launch(caps.clone()), macos_github_actions()).await
-}
-
-/// Retry one driver readiness timeout before any session or test body has started.
-/// The manager kills and reaps the timed-out process before returning the error.
-pub async fn retry_chrome_startup<F, Fut, T>(
-    mut launch: F,
-    retry_enabled: bool,
-) -> WebDriverResult<T>
-where
-    F: FnMut() -> Fut,
-    Fut: Future<Output = WebDriverResult<T>>,
-{
-    match launch().await {
-        Err(error)
-            if retry_enabled
-                // The public launch API converts ManagerError to a string here.
-                && matches!(error.as_inner(), WebDriverErrorInner::SessionCreateError(message)
-                    if message.starts_with("driver manager: driver did not become ready within ")) =>
-        {
-            eprintln!("ChromeDriver startup timed out; retrying once: {error}");
-            tokio::time::sleep(Duration::from_secs(1)).await;
-            launch().await
-        }
-        result => result,
-    }
+    mgr.launch(caps).await
 }
 
 /// Launch a Firefox session against the binary's shared [`WebDriverManager`].

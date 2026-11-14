@@ -30,7 +30,7 @@ pub struct StartedSession {
 ///
 /// Managed and external-driver constructors share this path and its single
 /// retry budget (at most two New Session requests). Besides the legacy
-/// Selenium UnknownError/500 workaround, Edge's exact missing DevTools port
+/// Selenium UnknownError/500 workaround, Chromium's exact missing DevTools port
 /// error is retried once. Other session errors and transport failures are not
 /// retried by the new policy. The final error is returned unchanged.
 pub async fn start_session(
@@ -39,10 +39,13 @@ pub async fn start_session(
     config: &WebDriverConfig,
     capabilities: Capabilities,
 ) -> WebDriverResult<StartedSession> {
-    let is_edge = capabilities
-        .get("browserName")
-        .and_then(serde_json::Value::as_str)
-        .is_some_and(|name| name.eq_ignore_ascii_case("MicrosoftEdge"));
+    let is_chromium =
+        capabilities.get("browserName").and_then(serde_json::Value::as_str).is_some_and(|name| {
+            matches!(
+                name.to_ascii_lowercase().as_str(),
+                "chrome" | "chromium" | "microsoftedge" | "msedge" | "edge"
+            )
+        });
     let request_data = Command::NewSession(capabilities.into()).format_request(&SessionId::null());
 
     let v = match run_webdriver_cmd(http_client, &request_data, server_url, config).await {
@@ -50,7 +53,7 @@ pub async fn start_session(
         Err(e) => {
             // Share one retry budget with the legacy Selenium HTTP-500 workaround.
             // Never retry an uncertain transport failure: a session may already exist.
-            if retry_new_session(&e, is_edge) {
+            if retry_new_session(&e, is_chromium) {
                 tracing::warn!(error = %e, "retrying failed New Session once");
                 run_webdriver_cmd(http_client, &request_data, server_url, config).await
             } else {
@@ -97,15 +100,15 @@ pub async fn start_session(
     })
 }
 
-/// EdgeDriver has already accepted New Session here; this is not the manager's
-/// `/status` readiness check. Retry only its definitive missing-port failure.
+/// ChromeDriver or EdgeDriver has already accepted New Session here; this is
+/// not the manager's `/status` readiness check. Retry only its definitive missing-port failure.
 /// The driver owns failed-launch cleanup before replying. No session ID exists
 /// to DELETE, and we must not kill a shared/external driver or delete its files.
-fn retry_new_session(error: &crate::error::WebDriverError, is_edge: bool) -> bool {
+fn retry_new_session(error: &crate::error::WebDriverError, is_chromium: bool) -> bool {
     match &**error {
         // Preserve the existing Selenium compatibility retry.
         WebDriverErrorInner::UnknownError(info) => info.status == 500,
-        WebDriverErrorInner::SessionNotCreated(info) if is_edge && info.status == 500 => {
+        WebDriverErrorInner::SessionNotCreated(info) if is_chromium && info.status == 500 => {
             // Exact matching deliberately excludes nested errors such as
             // "cannot kill ...: DevToolsActivePort file doesn't exist", which
             // indicate that the driver's failed-launch cleanup did not finish.
@@ -181,29 +184,35 @@ mod tests {
     const MISSING: &str = "session not created: DevToolsActivePort file doesn't exist";
 
     #[tokio::test]
-    async fn edge_missing_port_retries_once_then_initializes_only_successful_session() {
-        for message in [MISSING, "DevToolsActivePort file doesn't exist"] {
-            let (result, paths) = run(
-                "MicrosoftEdge",
-                vec![
-                    failure("session not created", message),
-                    response(
-                        200,
-                        json!({"value": {"sessionId": "new-session", "capabilities": {}}}),
-                    ),
-                    response(200, json!({"value": null})),
-                ],
-            )
-            .await;
-            assert_eq!(result.unwrap().session_id.to_string(), "new-session");
-            assert_eq!(paths, ["/session", "/session", "/session/new-session/timeouts"]);
+    async fn chromium_missing_port_retries_once_then_initializes_only_successful_session() {
+        for browser in ["chrome", "chromium", "MicrosoftEdge", "msedge", "edge", "CHROME"] {
+            for message in [MISSING, "DevToolsActivePort file doesn't exist"] {
+                let (result, paths) = run(
+                    browser,
+                    vec![
+                        failure("session not created", message),
+                        response(
+                            200,
+                            json!({"value": {"sessionId": "new-session", "capabilities": {}}}),
+                        ),
+                        response(200, json!({"value": null})),
+                    ],
+                )
+                .await;
+                assert_eq!(result.unwrap().session_id.to_string(), "new-session");
+                assert_eq!(paths, ["/session", "/session", "/session/new-session/timeouts"]);
+            }
         }
     }
 
+    #[rstest::rstest]
+    #[case("chrome")]
+    #[case("chromium")]
+    #[case("MicrosoftEdge")]
     #[tokio::test]
-    async fn repeated_failure_is_bounded_and_preserves_final_driver_error() {
+    async fn repeated_failure_is_bounded_and_preserves_final_driver_error(#[case] browser: &str) {
         let (result, paths) = run(
-            "MicrosoftEdge",
+            browser,
             vec![failure("session not created", MISSING), failure("session not created", MISSING)],
         )
         .await;
@@ -219,8 +228,8 @@ mod tests {
     #[tokio::test]
     async fn unrelated_session_errors_and_other_browsers_are_not_retried() {
         for (browser, kind, message) in [
-            ("chrome", "session not created", MISSING),
             ("firefox", "session not created", MISSING),
+            ("safari", "session not created", MISSING),
             ("MicrosoftEdge", "invalid argument", MISSING),
             ("MicrosoftEdge", "session not created", "unsupported browser version"),
             (
@@ -229,6 +238,13 @@ mod tests {
                 "cannot kill browser: DevToolsActivePort file doesn't exist",
             ),
             ("MicrosoftEdge", "session not created", "user data directory is already in use"),
+            ("chrome", "session not created", "unsupported browser version"),
+            (
+                "chrome",
+                "session not created",
+                "cannot kill Chrome: DevToolsActivePort file doesn't exist",
+            ),
+            ("chrome", "session not created", "user data directory is already in use"),
         ] {
             let (result, paths) = run(browser, vec![failure(kind, message)]).await;
             assert!(result.is_err());
@@ -238,21 +254,27 @@ mod tests {
 
     #[tokio::test]
     async fn uncertain_transport_failure_is_not_retried() {
-        for error in [
-            WebDriverError::RequestFailed("connection lost".into()),
-            WebDriverError::HttpError("request timed out".into()),
-            WebDriverError::Timeout("timed out".into()),
-        ] {
-            let (result, paths) = run("MicrosoftEdge", vec![Err(error)]).await;
-            assert!(result.is_err());
-            assert_eq!(paths, ["/session"]);
+        for browser in ["chrome", "chromium", "MicrosoftEdge"] {
+            for error in [
+                WebDriverError::RequestFailed("connection lost".into()),
+                WebDriverError::HttpError("request timed out".into()),
+                WebDriverError::Timeout("timed out".into()),
+            ] {
+                let (result, paths) = run(browser, vec![Err(error)]).await;
+                assert!(result.is_err());
+                assert_eq!(paths, ["/session"]);
+            }
         }
     }
 
+    #[rstest::rstest]
+    #[case("chrome")]
+    #[case("chromium")]
+    #[case("MicrosoftEdge")]
     #[tokio::test]
-    async fn success_and_non_500_failures_do_not_retry() {
+    async fn success_and_non_500_failures_do_not_retry(#[case] browser: &str) {
         let (result, paths) = run(
-            "MicrosoftEdge",
+            browser,
             vec![
                 response(200, json!({"value": {"sessionId": "first", "capabilities": {}}})),
                 response(200, json!({"value": null})),
@@ -262,7 +284,7 @@ mod tests {
         assert!(result.is_ok());
         assert_eq!(paths, ["/session", "/session/first/timeouts"]);
         let (result, paths) = run(
-            "MicrosoftEdge",
+            browser,
             vec![response(
                 400,
                 json!({"value": {"error": "session not created", "message": MISSING}}),
@@ -273,10 +295,16 @@ mod tests {
         assert_eq!(paths, ["/session"]);
     }
 
+    #[rstest::rstest]
+    #[case("chrome")]
+    #[case("chromium")]
+    #[case("MicrosoftEdge")]
     #[tokio::test]
-    async fn retry_returns_unrelated_final_error_without_masking_or_retrying_it() {
+    async fn retry_returns_unrelated_final_error_without_masking_or_retrying_it(
+        #[case] browser: &str,
+    ) {
         let (result, paths) = run(
-            "MicrosoftEdge",
+            browser,
             vec![
                 failure("session not created", MISSING),
                 failure("invalid argument", "invalid capability"),
@@ -291,10 +319,16 @@ mod tests {
         assert_eq!(paths, ["/session", "/session"]);
     }
 
+    #[rstest::rstest]
+    #[case("chrome")]
+    #[case("chromium")]
+    #[case("MicrosoftEdge")]
     #[tokio::test]
-    async fn legacy_unknown_error_and_edge_failure_share_one_retry_budget() {
+    async fn legacy_unknown_error_and_chromium_failure_share_one_retry_budget(
+        #[case] browser: &str,
+    ) {
         let (result, paths) = run(
-            "MicrosoftEdge",
+            browser,
             vec![
                 failure("unknown error", "Chrome failed to start"),
                 failure("session not created", MISSING),

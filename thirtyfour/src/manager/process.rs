@@ -114,10 +114,9 @@ pub(crate) struct SpawnContext<'a> {
 impl ManagedDriverProcess {
     /// Spawn the driver and poll until it reports ready.
     ///
-    /// Retries are only attempted on the narrow case of a port-collision after
-    /// the bind/release dance. Spawn failures (binary not found, exit on
-    /// startup) and readiness timeouts surface immediately — retrying those
-    /// would just multiply the wait by 3x for no benefit.
+    /// Retry port collisions after the bind/release dance up to twice. Chromium
+    /// drivers also get one fresh-process retry after a readiness timeout, once
+    /// the failed child has been killed and reaped. No session exists yet.
     pub(crate) async fn spawn(
         binary: &Path,
         browser: BrowserKind,
@@ -125,19 +124,26 @@ impl ManagedDriverProcess {
         ctx: SpawnContext<'_>,
     ) -> Result<Self, ManagerError> {
         const MAX_PORT_ATTEMPTS: u8 = 3;
-        let mut last_err: Option<ManagerError> = None;
-        for attempt in 0..MAX_PORT_ATTEMPTS {
+        let mut port_attempts = 1;
+        let mut retried_readiness = false;
+        loop {
             let port = pick_port(cfg.host)?;
             match spawn_at_port(binary, browser, cfg, port, &ctx).await {
                 Ok(p) => return Ok(p),
-                Err(e) if is_port_in_use(&e) => {
-                    debug!("driver port {port} already in use (attempt {attempt}): {e}");
-                    last_err = Some(e);
+                Err(e) if is_port_in_use(&e) && port_attempts < MAX_PORT_ATTEMPTS => {
+                    debug!("driver port {port} already in use (attempt {port_attempts}): {e}");
+                    port_attempts += 1;
+                }
+                Err(e @ ManagerError::DriverNotReady(_))
+                    if matches!(browser, BrowserKind::Chrome | BrowserKind::Edge)
+                        && !retried_readiness =>
+                {
+                    warn!(?browser, error = %e, "retrying managed Chromium driver startup once");
+                    retried_readiness = true;
                 }
                 Err(e) => return Err(e),
             }
         }
-        Err(last_err.unwrap_or_else(|| ManagerError::Spawn("port allocation exhausted".into())))
     }
 
     /// Connection URL.
@@ -307,10 +313,13 @@ async fn spawn_at_port(
 
     let ready_started = Instant::now();
     if let Err(e) = wait_until_ready(cfg.host, port, cfg.ready_timeout).await {
-        let _ = child.kill().await;
+        let cleanup = child.kill().await;
         for h in &pump_handles {
             h.abort();
         }
+        cleanup.map_err(|cleanup_error| {
+            ManagerError::Spawn(format!("failed to stop driver after {e}: {cleanup_error}"))
+        })?;
         return Err(e);
     }
     let url = format!("http://{}:{}", cfg.host, port);
@@ -450,6 +459,126 @@ impl Drop for ManagedDriverProcess {
             version: self.version.clone(),
             port: self.port,
         });
+    }
+}
+
+#[cfg(all(test, unix))]
+mod startup_tests {
+    use super::*;
+
+    fn process_alive(pid: u32) -> bool {
+        std::process::Command::new("kill")
+            .args(["-0", &pid.to_string()])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .unwrap()
+            .success()
+    }
+
+    fn config(timeout: Duration) -> SpawnConfig {
+        SpawnConfig {
+            ready_timeout: timeout,
+            // A real child stays alive without serving /status. The test
+            // controls readiness independently through a local HTTP server.
+            args: vec!["-c".into(), "exec sleep 30".into()],
+            ..SpawnConfig::default()
+        }
+    }
+
+    #[tokio::test]
+    async fn chromium_restarts_after_readiness_timeout_and_reaps_first_child() {
+        for browser in [BrowserKind::Chrome, BrowserKind::Edge] {
+            let emitter = Emitter::new();
+            let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+            let _subscription = emitter.add(move |event| {
+                if let Status::DriverProcessSpawned {
+                    pid,
+                    port,
+                    ..
+                } = event
+                {
+                    tx.send((*pid, *port)).unwrap();
+                }
+            });
+            let cfg = config(Duration::from_millis(500));
+            let spawn = ManagedDriverProcess::spawn(
+                Path::new("/bin/sh"),
+                browser,
+                &cfg,
+                SpawnContext {
+                    driver_id: DriverId::from_raw(0),
+                    version: "fixture",
+                    emitter: &emitter,
+                    manager_log_subscribers: LogSubscribers::new(),
+                },
+            );
+            let ready_on_retry = async move {
+                let (first_pid, _) = rx.recv().await.unwrap();
+                assert!(process_alive(first_pid));
+                let (second_pid, port) = rx.recv().await.unwrap();
+                assert!(!process_alive(first_pid), "failed child must be reaped before retry");
+                let listener =
+                    tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, port)).await.unwrap();
+                let app = axum::Router::new().route(
+                    "/status",
+                    axum::routing::get(|| async {
+                        axum::Json(serde_json::json!({"value": {"ready": true}}))
+                    }),
+                );
+                let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+                (second_pid, server)
+            };
+            let (result, (pid, server)) = tokio::time::timeout(Duration::from_secs(5), async {
+                tokio::join!(spawn, ready_on_retry)
+            })
+            .await
+            .expect("one failed attempt and one successful attempt must finish");
+            let mut process = result.unwrap();
+            assert!(process.child.as_mut().unwrap().try_wait().unwrap().is_none());
+            process.shutdown_with_budget(Duration::ZERO).await.unwrap();
+            assert!(!process_alive(pid));
+            server.abort();
+        }
+    }
+
+    #[tokio::test]
+    async fn readiness_retry_is_bounded_and_only_for_chromium() {
+        for (browser, expected_attempts) in [
+            (BrowserKind::Chrome, 2),
+            (BrowserKind::Edge, 2),
+            (BrowserKind::Firefox, 1),
+            (BrowserKind::Safari, 1),
+        ] {
+            let emitter = Emitter::new();
+            let pids = Arc::new(std::sync::Mutex::new(Vec::new()));
+            let observed = Arc::clone(&pids);
+            let _subscription = emitter.add(move |event| {
+                if let Status::DriverProcessSpawned {
+                    pid,
+                    ..
+                } = event
+                {
+                    observed.lock().unwrap().push(*pid);
+                }
+            });
+            let result = ManagedDriverProcess::spawn(
+                Path::new("/bin/sh"),
+                browser,
+                &config(Duration::from_millis(10)),
+                SpawnContext {
+                    driver_id: DriverId::from_raw(0),
+                    version: "fixture",
+                    emitter: &emitter,
+                    manager_log_subscribers: LogSubscribers::new(),
+                },
+            )
+            .await;
+            assert!(matches!(result, Err(ManagerError::DriverNotReady(_))));
+            let pids = pids.lock().unwrap();
+            assert_eq!(pids.len(), expected_attempts, "{browser:?}");
+            assert!(pids.iter().all(|pid| !process_alive(*pid)), "all failed children must exit");
+        }
     }
 }
 

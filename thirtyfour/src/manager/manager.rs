@@ -508,6 +508,8 @@ impl WebDriverManagerBuilder {
     }
 
     /// Override the timeout for waiting on driver `/status` readiness. Default: 30s.
+    /// Applies per process attempt. Chrome/Chromium and Edge get one fresh-process
+    /// retry after a readiness timeout, so readiness can take twice this long.
     pub fn ready_timeout(mut self, d: Duration) -> Self {
         self.ready_timeout = Some(d);
         self

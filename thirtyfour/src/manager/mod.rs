@@ -25,6 +25,17 @@
 //! # Ok(()) }
 //! ```
 //!
+//! # Startup recovery
+//!
+//! Chrome/Chromium and Edge drivers are restarted once if `/status` readiness
+//! times out, after killing and reaping the failed process. This applies on all
+//! platforms, before sending any session request. The
+//! [`ready_timeout`](crate::manager::WebDriverManagerBuilder::ready_timeout)
+//! budget applies to each attempt.
+//! Session creation also retries once for the exact missing `DevToolsActivePort`
+//! error, sharing the existing Selenium HTTP-500 retry budget. Uncertain session
+//! transport failures and unrelated session errors are returned to the caller.
+//!
 //! # Shutdown and temporary profiles
 //!
 //! Call [`WebDriver::quit`](crate::WebDriver::quit) explicitly. After the last
