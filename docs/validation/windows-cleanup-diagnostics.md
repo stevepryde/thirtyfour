@@ -73,7 +73,7 @@ cargo test -p thirtyfour --features manager-tests --test cleanup_comparison \
 Use TMP/TEMP on Windows and TMPDIR on Linux. `THIRTYFOUR_CLEANUP_ROUNDS` supports
 short harness smoke runs; CI uses the default 20. Keep separate artifact directories
 for separate runs. Re-run the diagnostic workflow through its PR check or manual
-dispatch once available on the default branch.
+dispatch against this branch. Manual dispatch selects one OS and log destination.
 
 ## Interpretation
 
@@ -131,3 +131,48 @@ The follow-up stress instrumentation persists its record after quit (including
 quit errors) to avoid adding disk I/O between creation and quit. The matched
 comparison deliberately keeps its detailed pre-quit records and verbose logs.
 See the draft PR for additional runs after the initial observations above.
+
+## Reproduced residue and open handles
+
+The unchanged comparison at 3120221 reproduced the issue in the repeat run:
+https://github.com/stevepryde/thirtyfour/actions/runs/43549259924
+(Windows job 132307690572, artifact 14095598893).
+Windows image 20261103.298.1 and Chrome/ChromeDriver 156.0.8078.80 matched the
+first run. All 320 sessions completed without protocol or startup errors; three
+profiles remained in each arm. Each contained exactly one `chrome_debug.log`:
+
+| Session | Profile under C:\Windows\SystemTemp | Bytes | Handle observed |
+| --- | --- | ---: | --- |
+| managed-19-2 | scoped_dir11548_1491098205 | 297 | Not caught |
+| managed-19-3 | scoped_dir7896_509295196 | 295 | chrome.exe PID 7648, parent 3960 |
+| managed-19-4 | scoped_dir11628_471127973 | 1573 | Not caught |
+| raw-20-2 | scoped_dir5072_1132890783 | 296 | chrome.exe PID 3340, parent 6896 |
+| raw-20-3 | scoped_dir12536_47907609 | 297 | chrome.exe PID 6840, parent 2692 |
+| raw-20-7 | scoped_dir9780_239114701 | 1465 | Not caught |
+
+Those parent PIDs match the primary Chrome `goog:processID` returned for the
+sessions. The managed handle was observed after `quit()`; both raw handles were
+observed after DELETE 200 and GET /session/{id}/url returned 404 `invalid session
+id`, **before** /shutdown was sent. The raw driver processes then exited with
+status zero. This reproduces the failure without Thirtyfour managing session
+teardown and supports surviving Chrome child log handles as a mechanism in the
+observed cases. It is not evidence that antivirus caused these occurrences.
+
+All six files persisted through the final and delayed inventories, 38–66 seconds
+after their first captured residue snapshot. By those later snapshots, Handle
+found no matching handles; waiting did not make ChromeDriver repeat its abandoned
+cleanup. The collector therefore caught transient ownership that a final-only
+inventory would have missed. Exact inventories, safe log contents, PIDs, parent
+PIDs, timings, and driver logs are retained in the artifact.
+
+Relevant release sources:
+- [Chrome 156 log opens omit FILE_SHARE_DELETE](https://github.com/chromium/chromium/blob/156.0.8078.80/base/logging.cc#L321).
+- [ChromeDriver's finite deletion retries](https://github.com/chromium/chromium/blob/156.0.8078.80/chrome/test/chromedriver/chrome/scoped_temp_dir_with_retry.cc#L11).
+- [ChromeDriver's supported stderr log routing](https://github.com/chromium/chromium/blob/156.0.8078.80/chrome/test/chromedriver/chrome_launcher.cc#L149).
+
+The diagnostic workflow now accepts `chrome_logs=stderr` on manual dispatch,
+adding `--enable-chrome-logs` to both arms and retaining the redirected output as
+artifacts. The default `profile` mode preserves the reproduction and all cleanup
+assertions. This separately tests an opt-in workaround without changing library
+defaults or deleting any files. A logging-destination change cannot by itself
+promise that every Chrome descendant has exited. No upstream report has been filed.

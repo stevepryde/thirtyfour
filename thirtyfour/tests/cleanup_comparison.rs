@@ -5,6 +5,7 @@ mod diagnostics;
 use anyhow::{Context, Result, bail, ensure};
 use serde_json::{Value, json};
 use std::{
+    io::Write,
     path::PathBuf,
     process::Stdio,
     sync::{Arc, Mutex},
@@ -14,6 +15,10 @@ use thirtyfour::{
     manager::{BrowserKind, Status, WebDriverManager},
     prelude::*,
 };
+
+fn chrome_stderr() -> bool {
+    std::env::var("THIRTYFOUR_CLEANUP_CHROME_STDERR").as_deref() == Ok("1")
+}
 
 fn caps() -> Capabilities {
     let mut caps = DesiredCapabilities::chrome();
@@ -68,7 +73,7 @@ async fn session(
 ) -> Result<PathBuf> {
     let name = format!("{arm}-{round:02}-{slot}");
     let start = Instant::now();
-    let mut record = json!({"arm": arm, "round": round, "slot": slot, "started_ms": diagnostics::now_ms(), "requested": caps(), "binary": binary});
+    let mut record = json!({"arm": arm, "round": round, "slot": slot, "started_ms": diagnostics::now_ms(), "requested": caps(), "binary": binary, "chrome_stderr": chrome_stderr()});
     let log = root.join(format!("{name}-driver.log"));
     diagnostics::save(&name, &record);
     let profile;
@@ -94,8 +99,19 @@ async fn session(
                         &json!({"at_ms": diagnostics::now_ms(), "status": format!("{status:?}")}),
                     );
                 }
-            })
-            .build();
+            });
+        let manager = if chrome_stderr() {
+            let output =
+                Mutex::new(std::fs::File::create(root.join(format!("{name}-chrome-stderr.log")))?);
+            manager.driver_arg(BrowserKind::Chrome, "--enable-chrome-logs").on_driver_log(
+                move |line| {
+                    let _ = writeln!(output.lock().unwrap(), "{}", line.line);
+                },
+            )
+        } else {
+            manager
+        };
+        let manager = manager.build();
         let driver = manager.launch(caps()).await?;
         profile = PathBuf::from(
             driver.capabilities().get("chrome").context("chrome capabilities")?["userDataDir"]
@@ -119,6 +135,10 @@ async fn session(
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .kill_on_drop(true);
+        if chrome_stderr() {
+            let output = std::fs::File::create(root.join(format!("{name}-chrome-stderr.log")))?;
+            command.arg("--enable-chrome-logs").stdout(output.try_clone()?).stderr(output);
+        }
         #[cfg(windows)]
         command.creation_flags(0x0800_0000);
         let mut child = command.spawn()?;
@@ -216,7 +236,7 @@ async fn matched_cleanup_comparison() -> Result<()> {
     let version = tokio::process::Command::new(&binary).arg("--version").output().await?;
     diagnostics::save(
         "environment",
-        &json!({"os": std::env::consts::OS, "binary": binary, "driver_version": String::from_utf8_lossy(&version.stdout), "requested": caps()}),
+        &json!({"os": std::env::consts::OS, "binary": binary, "driver_version": String::from_utf8_lossy(&version.stdout), "requested": caps(), "chrome_stderr": chrome_stderr()}),
     );
     let rounds: usize =
         std::env::var("THIRTYFOUR_CLEANUP_ROUNDS").unwrap_or_else(|_| "20".into()).parse()?;
