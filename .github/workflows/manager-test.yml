@@ -13,6 +13,8 @@ on:
       - 'thirtyfour/src/session/create.rs'
       - 'thirtyfour/tests/managed.rs'
       - 'thirtyfour/tests/managed_cleanup.rs'
+      - 'thirtyfour/tests/support/cleanup_diagnostics.rs'
+      - 'ci/cleanup-handles.ps1'
       - '.github/workflows/manager-test.yml'
   pull_request:
     paths:
@@ -20,6 +22,8 @@ on:
       - 'thirtyfour/src/session/create.rs'
       - 'thirtyfour/tests/managed.rs'
       - 'thirtyfour/tests/managed_cleanup.rs'
+      - 'thirtyfour/tests/support/cleanup_diagnostics.rs'
+      - 'ci/cleanup-handles.ps1'
       - '.github/workflows/manager-test.yml'
 name: cargo test (manager)
 jobs:
@@ -86,17 +90,36 @@ jobs:
         with:
           command: test
           args: -p thirtyfour --features manager-tests --test managed_cleanup -- --test-threads=1
+      - name: Install exact-profile handle observer
+        continue-on-error: true
+        if: matrix.os == 'windows-latest' && matrix.browser == 'chrome'
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'cleanup-handle-tool'
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          Invoke-WebRequest https://download.sysinternals.com/files/Handle.zip -OutFile "$dir/Handle.zip"
+          Expand-Archive "$dir/Handle.zip" -DestinationPath $dir
+          "THIRTYFOUR_HANDLE_EXE=$dir/handle64.exe" >> $env:GITHUB_ENV
       - name: Windows Chromium cleanup stress regression
         if: matrix.os == 'windows-latest' && matrix.browser == 'chrome'
         shell: pwsh
         run: |
+          $env:THIRTYFOUR_CLEANUP_ARTIFACTS = Join-Path $env:RUNNER_TEMP 'cleanup-stress-artifacts'
           $env:TMP = Join-Path $env:RUNNER_TEMP 'thirtyfour-cleanup'
           New-Item -ItemType Directory -Force -Path $env:TMP | Out-Null
           $env:TEMP = $env:TMP
           cargo test -p thirtyfour --features manager-tests --test managed_cleanup managed_cleanup_stress -- --ignored --nocapture
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $testExit = $LASTEXITCODE
           $leftovers = @(Get-ChildItem $env:TMP -Directory -Filter 'scoped_dir*')
           if ($leftovers.Count -ne 0) {
             $leftovers | Format-Table Name
             throw "$($leftovers.Count) ChromeDriver temporary directories remain"
           }
+          exit $testExit
+      - name: Preserve cleanup diagnostics
+        if: always() && matrix.os == 'windows-latest' && matrix.browser == 'chrome'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cleanup-stress-windows
+          path: ${{ runner.temp }}/cleanup-stress-artifacts
+          retention-days: 14

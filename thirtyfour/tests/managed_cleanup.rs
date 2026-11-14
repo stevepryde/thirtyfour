@@ -1,5 +1,7 @@
 //! Real-browser regression coverage for managed Chromium cleanup (issue #380).
 #![cfg(feature = "manager-tests")]
+#[path = "support/cleanup_diagnostics.rs"]
+mod diagnostics;
 use std::{path::PathBuf, time::Duration};
 use thirtyfour::prelude::*;
 
@@ -73,10 +75,21 @@ async fn managed_cleanup_stress() -> WebDriverResult<()> {
     let mut profiles = Vec::new();
     for round in 0..20 {
         let mut tasks = tokio::task::JoinSet::new();
-        for _ in 0..8 {
-            tasks.spawn(async {
+        for slot in 0..8 {
+            tasks.spawn(async move {
                 let (driver, path) = session().await?;
+                let name = format!("stress-{round:02}-{slot}");
+                diagnostics::save(
+                    &name,
+                    &serde_json::json!({
+                        "at_ms": diagnostics::now_ms(), "profile": path,
+                        "capabilities": driver.capabilities()
+                    }),
+                );
                 driver.quit().await?;
+                if path.exists() {
+                    diagnostics::snapshot(&format!("{name}-after-quit"), &path).await;
+                }
                 Ok::<_, WebDriverError>(path)
             });
         }
@@ -92,6 +105,13 @@ async fn managed_cleanup_stress() -> WebDriverResult<()> {
     }
     tokio::time::sleep(Duration::from_secs(2)).await;
     let remaining: Vec<_> = profiles.iter().filter(|p| p.exists()).collect();
+    diagnostics::save(
+        "stress-summary",
+        &serde_json::json!({"profiles": profiles, "remaining": remaining}),
+    );
+    for (index, path) in remaining.iter().enumerate() {
+        diagnostics::snapshot(&format!("stress-final-{index}"), path).await;
+    }
     assert!(
         remaining.is_empty(),
         "{} / {} profiles remain: {:?}",

@@ -1,0 +1,58 @@
+name: Chrome cleanup comparison
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'thirtyfour/tests/cleanup_comparison.rs'
+      - 'thirtyfour/tests/support/cleanup_diagnostics.rs'
+      - 'ci/cleanup-handles.ps1'
+      - '.github/workflows/cleanup-diagnostics.yml'
+permissions:
+  contents: read
+jobs:
+  comparison:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+      - name: Install Windows handle observer
+        continue-on-error: true
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'cleanup-handle-tool'
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          Invoke-WebRequest https://download.sysinternals.com/files/Handle.zip -OutFile "$dir/Handle.zip"
+          Expand-Archive "$dir/Handle.zip" -DestinationPath $dir
+          "THIRTYFOUR_HANDLE_EXE=$dir/handle64.exe" >> $env:GITHUB_ENV
+      - name: Matched raw and managed sessions
+        shell: pwsh
+        run: |
+          $env:THIRTYFOUR_CLEANUP_ARTIFACTS = Join-Path $env:RUNNER_TEMP 'cleanup-comparison'
+          New-Item -ItemType Directory -Force $env:THIRTYFOUR_CLEANUP_ARTIFACTS | Out-Null
+          $scratch = Join-Path $env:RUNNER_TEMP 'cleanup-browser-temp'
+          New-Item -ItemType Directory -Force $scratch | Out-Null
+          $env:TMP = $scratch
+          $env:TEMP = $scratch
+          $env:TMPDIR = $scratch
+          $env:MAC_CHROMIUM_TMPDIR = $scratch
+          @{ImageOS=$env:ImageOS; ImageVersion=$env:ImageVersion; RunnerOS=$env:RUNNER_OS} |
+            ConvertTo-Json | Out-File "$env:THIRTYFOUR_CLEANUP_ARTIFACTS/runner.json"
+          cargo test -p thirtyfour --features manager-tests --test cleanup_comparison -- --ignored --nocapture 2>&1 |
+            Tee-Object "$env:THIRTYFOUR_CLEANUP_ARTIFACTS/test-output.txt"
+          exit $LASTEXITCODE
+      - name: Preserve observations even after failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cleanup-comparison-${{ matrix.os }}
+          path: ${{ runner.temp }}/cleanup-comparison
+          retention-days: 14
