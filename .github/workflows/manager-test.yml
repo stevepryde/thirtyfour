@@ -10,12 +10,14 @@ on:
     # silently in an E2E test. Kept in sync between push and pull_request.
     paths:
       - 'thirtyfour/src/manager/**'
+      - 'thirtyfour/src/session/create.rs'
       - 'thirtyfour/tests/managed.rs'
       - 'thirtyfour/tests/managed_cleanup.rs'
       - '.github/workflows/manager-test.yml'
   pull_request:
     paths:
       - 'thirtyfour/src/manager/**'
+      - 'thirtyfour/src/session/create.rs'
       - 'thirtyfour/tests/managed.rs'
       - 'thirtyfour/tests/managed_cleanup.rs'
       - '.github/workflows/manager-test.yml'
