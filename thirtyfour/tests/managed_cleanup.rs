@@ -79,17 +79,23 @@ async fn managed_cleanup_stress() -> WebDriverResult<()> {
             tasks.spawn(async move {
                 let (driver, path) = session().await?;
                 let name = format!("stress-{round:02}-{slot}");
+                // Avoid disk I/O between creation and quit in this baseline.
+                // Persist the returned path even when quit itself returns an error.
+                let capabilities = driver.capabilities().clone();
+                let started = diagnostics::now_ms();
+                let quit = driver.quit().await;
                 diagnostics::save(
                     &name,
                     &serde_json::json!({
-                        "at_ms": diagnostics::now_ms(), "profile": path,
-                        "capabilities": driver.capabilities()
+                        "quit_started_ms": started, "quit_finished_ms": diagnostics::now_ms(),
+                        "profile": path, "capabilities": capabilities,
+                        "quit_result": format!("{quit:?}")
                     }),
                 );
-                driver.quit().await?;
                 if path.exists() {
                     diagnostics::snapshot(&format!("{name}-after-quit"), &path).await;
                 }
+                quit?;
                 Ok::<_, WebDriverError>(path)
             });
         }

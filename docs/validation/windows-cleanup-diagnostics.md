@@ -86,3 +86,48 @@ dispatch once available on the default branch.
 - Zero residue: report the sample size and versions, not a claim that the bug is fixed.
 
 No production solution is claimed until the observations support one.
+## Observations from diagnostic commit 3120221
+
+The initial comparison run is
+https://github.com/stevepryde/thirtyfour/actions/runs/43548363020.
+All counts below refer to returned profile directories, not all temporary files.
+
+| Environment | Chrome / driver | Raw completed / residue | Managed completed / residue | Result |
+| --- | --- | --- | --- | --- |
+| Windows Server 2025, image 20261103.298.1 | 156.0.8078.80 | 160 / 0 | 160 / 0 | Passed |
+| Ubuntu, image 20261111.196.1 | 157.0.8103.50 | 160 / 0 | 160 / 0 | Passed |
+| Hosted macOS, image 20261102.0473.1 | 156.0.8078.80 | 160 / 0 | 159 / 0 | Failed: one managed driver port collision before session creation |
+| Local Apple Silicon macOS | 153.0.8010.36 | 160 / 0 | 160 / 0 | Passed |
+
+The ordinary Windows stress run also passed with 160 recorded profiles and zero
+residue: https://github.com/stevepryde/thirtyfour/actions/runs/43548362865.
+Its profiles were under C:\Windows\SystemTemp despite redirected TMP/TEMP.
+All nine manager matrix entries passed in that run.
+
+The hosted macOS failed session (`managed-10-1`) logged `bind() failed: Address
+already in use (48)` and `ERR_ADDRESS_IN_USE`; the manager reported its readiness
+timeout. The harness retains that failure rather than retrying or weakening it.
+The earlier local harness pilot likewise exposed reserve/release port races; raw
+driver startup was corrected to use ChromeDriver-selected ports before the stable
+commit. Pilot results are excluded from the table.
+
+The logged InitSession requests match across arms. Browser/driver versions match
+within each environment but differ across environments. Windows raw DELETE-to-
+barrier time had a 50 ms median and 2150 ms maximum; 12 of 160 exceeded one second.
+These are delayed-completion observations, not direct evidence of a retry count,
+handle owner, or antivirus interference.
+
+The original two main-branch failures had no preserved inventories or handles.
+Their exact contents cannot be recovered retrospectively from path-only logs.
+The first diagnostic run did not reproduce persistent residue, so no current
+failure can be described as log-only and no handle-owner claim is supported.
+Instrumentation and normal run-to-run variation may affect reproduction.
+
+Artifacts are retained for 14 days; the run pages link the Windows, Linux, macOS,
+and original stress artifacts. No driver-owned files were deleted, no cleanup
+assertions were weakened, and no production changes or upstream report were made.
+
+The follow-up stress instrumentation persists its record after quit (including
+quit errors) to avoid adding disk I/O between creation and quit. The matched
+comparison deliberately keeps its detailed pre-quit records and verbose logs.
+See the draft PR for additional runs after the initial observations above.
