@@ -2,6 +2,8 @@
 
 [Introduction](./introduction.md)
 
+- [API Reference](https://stevepryde.github.io/thirtyfour/api/)
+
 # Getting Started
 - [Installation](./getting-started/installation.md)
 - [Your First Browser Automation Code](./getting-started/first-code.md)
