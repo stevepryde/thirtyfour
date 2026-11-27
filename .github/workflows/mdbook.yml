@@ -34,13 +34,13 @@ jobs:
           url="https://github.com/rust-lang/mdbook/releases/download/${MDBOOK_VERSION}/mdbook-${MDBOOK_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
           install_dir="${RUNNER_TEMP}/mdbook"
           archive="${RUNNER_TEMP}/mdbook.tar.gz"
-          mkdir -p "$install_dir"
+          mkdir -p "${install_dir}"
           curl --fail --show-error --silent --location --retry 3 \
-            --connect-timeout 15 --max-time 120 "$url" --output "$archive"
+            --connect-timeout 15 --max-time 120 "${url}" --output "${archive}"
           echo "${MDBOOK_SHA256}  ${archive}" | sha256sum --check --strict
-          tar -xzf "$archive" --directory="$install_dir"
-          "$install_dir/mdbook" --version
-          echo "$install_dir" >> "$GITHUB_PATH"
+          tar -xzf "${archive}" --directory="${install_dir}"
+          "${install_dir}/mdbook" --version
+          echo "${install_dir}" >> "${GITHUB_PATH}"
       - name: Replace crate version
         run: |
           THIRTYFOUR_VERSION=$(cargo metadata --no-deps --format-version 1 \
@@ -53,6 +53,22 @@ jobs:
           # Just add a `cd` here if you need to change to another directory.
           cd docs
           mdbook build
+      - name: Build Sourcey API reference
+        # The mdBook covers guides; the per-type API reference is generated
+        # from the crate source with Sourcey (docs/sourcey/) and published
+        # under /api/ on the same Pages site, so readers never leave the
+        # project domain for docs.rs. Sourcey must run from an install
+        # outside this repo: its rustdoc helper is itself a Cargo package,
+        # and inside the thirtyfour workspace Cargo picks it up as a
+        # workspace member and the build fails. `npx` keeps it in the
+        # npm cache, outside the checkout. The pinned nightly matches
+        # the rustdoc JSON format Sourcey 3.9.5 expects (v57).
+        run: |
+          set -euo pipefail
+          rustup toolchain install nightly-2026-05-15
+          npx -y sourcey@3.9.5 build \
+            -c docs/sourcey/sourcey.config.ts \
+            -o docs/book/api
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
